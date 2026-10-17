@@ -4,6 +4,8 @@ A tiny offline web app for catching melody ideas while you walk. Tap **Record**,
 
 Plain HTML/CSS/JS, no build step, no backend. Hosted on GitHub Pages, installed to the iPhone Home Screen.
 
+**Live app:** <https://ravi-annaswamy.github.io/tune-notebook/> · **Repo:** <https://github.com/ravi-annaswamy/tune-notebook>
+
 ## How to use it
 
 1. **Record**: one tap. The mic starts right away (the first time, iOS asks for permission).
@@ -69,7 +71,7 @@ gh repo create tune-notebook --public --source=. --push
 
 ## Install on iPhone
 
-1. Open **Safari** (it has to be Safari) and go to `https://<your-username>.github.io/tune-notebook/`.
+1. Open **Safari** (it has to be Safari) and go to **<https://ravi-annaswamy.github.io/tune-notebook/>**.
 2. Tap the **Share** button (square with an up arrow) in the toolbar. On iOS 26 it may be under the **⋯** button.
 3. Scroll down and tap **Add to Home Screen**. Leave **Open as Web App** on, then tap **Add**.
 4. Open **Tunes** from the Home Screen. Tap **Record** once and **Allow** the microphone.
@@ -140,3 +142,5 @@ To try it on your iPhone before deploying, the page must be served over HTTPS (t
 > DELIVER: the full file set, plus step-by-step instructions to deploy on GitHub Pages and add to the iPhone home screen. Test edge cases: mic denied, recording interrupted by a phone call, very short clips.
 >
 > Follow-up during the build: "what is happening why still stuck on step 1?"
+>
+> Then: "Yes, create the tune-notebook GitHub repo and deploy it to GitHub Pages."

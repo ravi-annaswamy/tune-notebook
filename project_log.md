@@ -26,7 +26,13 @@
 - README.md: usage, GitHub Pages deploy (web upload or git), iPhone install, update procedure (bump sw.js VERSION), edge-case table, test record, untested-on-device list, original prompt.
 - Still to check on a real iPhone: a real phone call, the iOS share sheet, Wake Lock in the installed app, and the drone/click sound on the speaker.
 
+## 2026-10-17 15:54 · Deployed
+- Public repo https://github.com/ravi-annaswamy/tune-notebook created with gh and pushed (main). .claude/ is git-ignored.
+- GitHub Pages enabled via API (main, root). First build finished in about 20 s.
+- Live: https://ravi-annaswamy.github.io/tune-notebook/. Verified HTTP 200 for page/sw/manifest/js/icons; in the browser the SW registered at the /tune-notebook/ scope and cached all 13 files.
+
 ---
 ### User prompts
 1. (Build brief: see bottom of README.md for the full text.) Build the "Tune Notebook" PWA: record with tap tempo, Sa detection and a tanpura drone mixed in; IndexedDB storage; share/export; offline; deploy and iPhone install guide; test mic denied / phone-call interruption / very short clips.
 2. "what is happening why still stuck on step 1?"
+3. "Yes, create the tune-notebook GitHub repo and deploy it to GitHub Pages."
