@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Tune Notebook</title>
+  <meta name="description" content="Capture melody ideas while walking: tap tempo, tanpura drone, one-tap recording.">
+  <meta name="theme-color" content="#101217" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#f5f3ee" media="(prefers-color-scheme: light)">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Tunes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="icons/icon-192.png">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <h1>Tune Notebook</h1>
+      <button id="menuBtn" class="icon-btn" aria-label="Backup and settings">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="2.2"/><circle cx="12" cy="12" r="2.2"/><circle cx="19" cy="12" r="2.2"/></svg>
+      </button>
+    </div>
+    <button id="recordBtn" class="record-btn" aria-label="Start recording">
+      <span class="dot" aria-hidden="true"></span><span>Record</span>
+    </button>
+    <div id="installHint" class="hint" hidden>
+      <span>Tip: tap <b>Share</b> → <b>Add to Home Screen</b> so it works offline and your tunes stay safe.</span>
+      <button id="hintClose" class="hint-close" aria-label="Dismiss tip">✕</button>
+    </div>
+  </header>
+
+  <main>
+    <ul id="list" class="list" aria-label="Saved tunes"></ul>
+    <div id="empty" class="empty" hidden>
+      <p class="empty-title">No tunes yet</p>
+      <p>Tap <b>Record</b>, tap the beat, sing your Sa, then hum the idea.</p>
+    </div>
+    <p id="storageInfo" class="storage-info"></p>
+  </main>
+
+  <!-- Full-screen recording panel -->
+  <section id="recPanel" class="rec-panel" hidden aria-label="Recording">
+    <div class="rec-top">
+      <div class="rec-status">
+        <span class="rec-dot" aria-hidden="true"></span>
+        <span id="recTime" class="rec-time">0:00</span>
+        <span id="awakeInfo" class="awake-info"></span>
+      </div>
+      <div class="meter" aria-hidden="true"><div id="meterFill" class="meter-fill"></div></div>
+    </div>
+
+    <button id="tapBtn" class="pad tap-pad" aria-label="Tap tempo">
+      <span class="pad-title">Tap tempo</span>
+      <span id="bpmValue" class="pad-value">—</span>
+      <span id="tapInfo" class="pad-sub">Tap 4+ times on the beat</span>
+    </button>
+
+    <button id="saBtn" class="pad sa-pad" aria-label="Set Sa">
+      <span class="pad-title">Set Sa</span>
+      <span id="saValue" class="pad-value">—</span>
+      <span id="saInfo" class="pad-sub">Tap, then sing your root ~2 s</span>
+    </button>
+
+    <div class="mix-row">
+      <button id="clickToggle" class="chip" aria-pressed="true">Click on</button>
+      <button id="droneToggle" class="chip" aria-pressed="true">Drone on</button>
+    </div>
+
+    <button id="stopBtn" class="stop-btn"><span class="sq" aria-hidden="true"></span>Stop &amp; save</button>
+  </section>
+
+  <template id="rowTpl">
+    <li class="tune">
+      <button class="play" aria-label="Play">
+        <svg class="i-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>
+        <svg class="i-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg>
+      </button>
+      <div class="info">
+        <button class="name" aria-label="Rename"></button>
+        <div class="meta"><span class="m-bpm"></span><span class="m-sa"></span><span class="m-dur"></span></div>
+        <div class="progress" aria-hidden="true"><div class="bar"></div></div>
+      </div>
+      <div class="actions">
+        <button class="share icon-btn" aria-label="Share">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l4.5 4.5-1.4 1.4L13 6.8V15h-2V6.8L8.9 8.9 7.5 7.5zM5 13h2v6h10v-6h2v8H5z"/></svg>
+        </button>
+        <button class="del icon-btn" aria-label="Delete">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l1 2h4v2H4V5h4zM6 9h12l-1 12H7zm4 2v8h1.6v-8zm2.4 0v8H14v-8z"/></svg>
+        </button>
+      </div>
+    </li>
+  </template>
+
+  <dialog id="confirmDlg" class="sheet">
+    <h2 id="confirmTitle">Delete?</h2>
+    <p id="confirmBody"></p>
+    <div class="btn-row">
+      <button type="button" id="confirmCancel" class="btn">Cancel</button>
+      <button type="button" id="confirmOk" class="btn danger">Delete</button>
+    </div>
+  </dialog>
+
+  <dialog id="menuDlg" class="sheet">
+    <h2>Backup</h2>
+    <button id="exportZipBtn" class="btn block">Export all as .zip</button>
+    <button id="exportSeqBtn" class="btn block">Share tunes one by one</button>
+    <button id="importBtn" class="btn block">Import backup or audio files</button>
+    <p id="persistInfo" class="small"></p>
+    <button id="persistBtn" class="btn block subtle" hidden>Ask to keep storage</button>
+    <p class="small">Backups bundle every clip plus a <code>tunes.json</code> with names, BPM and Sa. Save the zip to Files or Drive. Import accepts that zip.</p>
+    <p id="versionInfo" class="small muted"></p>
+    <form method="dialog"><button class="btn block">Close</button></form>
+  </dialog>
+
+  <dialog id="seqDlg" class="sheet">
+    <h2>Share one by one</h2>
+    <p id="seqInfo"></p>
+    <button id="seqShareBtn" class="btn block primary">Share</button>
+    <div class="btn-row">
+      <button id="seqSkipBtn" class="btn">Skip</button>
+      <button id="seqDoneBtn" class="btn">Done</button>
+    </div>
+  </dialog>
+
+  <dialog id="micDlg" class="sheet">
+    <h2 id="micTitle">Microphone needed</h2>
+    <div id="micBody"></div>
+    <form method="dialog"><button class="btn block primary">OK</button></form>
+  </dialog>
+
+  <input type="file" id="importInput" accept=".zip,application/zip,audio/*,.m4a,.webm,.mp3,.wav" multiple hidden>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
