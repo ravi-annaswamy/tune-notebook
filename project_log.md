@@ -53,6 +53,10 @@
 - Sa: score = Sa time + Pa time + best scale-template coverage + last-long-note bonus − no-Pa penalty. Tune 1: A# Bilaval (good). Tune 2: C#/E/A ambiguous (relative keys). Tune 3: D# Asavari vs F# Bilaval.
 - Report: samples/analysis-2026-10-18.md (git-ignored, personal).
 
+## 2026-10-18 13:06 · Sa guesses confirmed by the user
+- User confirmed the top Sa picks match what they intended: tune 1 A#, tune 2 C#, tune 3 D#. The scoring (Sa time + Pa time + scale fit + final-note bonus − no-Pa penalty) is validated on 3/3 real whistled takes, including the ambiguous tune 2.
+- Next steps (not started): an in-app "Analyse" action filling bpm/sa; a louder downbeat or a spoken "one" to capture meter; using the opening sung Sa as a direct cue.
+
 ---
 ### User prompts
 1. (Build brief: see bottom of README.md for the full text.) Build the "Tune Notebook" PWA: record with tap tempo, Sa detection and a tanpura drone mixed in; IndexedDB storage; share/export; offline; deploy and iPhone install guide; test mic denied / phone-call interruption / very short clips.
@@ -63,3 +67,4 @@
 6. "I ran app on local host 8080 on mac and saved"
 7. "when I click export it says ready click share again, but then nothing happens when i click"
 8. "I moved the tune file into ~/projects/tune-notebook/samples/. Analyse it."
+9. "Yes, those Sa guesses match what I had in mind."
