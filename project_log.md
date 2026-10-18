@@ -38,9 +38,18 @@
 - pitch.js stays in the repo (tested) for the future analysis, but is no longer precached. sw.js VERSION is v1.1.0, APP_VERSION 1.1.0.
 - Re-tested in the pane: constraints, clean decoded signal (196 Hz tone present, no energy at Pa), call/ended interruptions, short clip, crash recovery. npm test 7/7.
 
+## 2026-10-18 12:45 · v1.1.1: share fix for desktop Chrome
+- User's whistled tune (with clapped beats) was recorded in Chrome on the Mac (localhost:8080). I was blocked from extracting it from Chrome's IndexedDB files (classifier denied it), so I deleted the scratch copy. Correct route: export with the app's Share button into samples/ (now git-ignored).
+- **Bug:** desktop Chrome says canShare() is true for audio/zip, then rejects share() with NotAllowedError even right after a click. The app treated every NotAllowedError as "tap expired, tap again", so the user was stuck in a loop.
+- **Fix:** read navigator.userActivation.isActive before share(). If the click was fresh, or this file (name+size) was already retried once, fall back to a download and say "Saved to Downloads: …". Tested both paths in the pane: real click → immediate download; scripted (no activation) → asks once, then downloads.
+- Version bumped to v1.1.1 (sw.js + APP_VERSION). Committed locally, not pushed.
+
 ---
 ### User prompts
 1. (Build brief: see bottom of README.md for the full text.) Build the "Tune Notebook" PWA: record with tap tempo, Sa detection and a tanpura drone mixed in; IndexedDB storage; share/export; offline; deploy and iPhone install guide; test mic denied / phone-call interruption / very short clips.
 2. "what is happening why still stuck on step 1?"
 3. "Yes, create the tune-notebook GitHub repo and deploy it to GitHub Pages."
 4. "Setting tempo and Sa makes the capturing of the tune interrupting flow. How about just capturing it as is… later we can figure out a way to recover the tempo and time signature and key signature and scale from melody itself"
+5. "I have saved one tune in whistle, with my clicks for each beat."
+6. "I ran app on local host 8080 on mac and saved"
+7. "when I click export it says ready click share again, but then nothing happens when i click"

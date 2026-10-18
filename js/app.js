@@ -2,7 +2,7 @@ import * as db from './db.js';
 import { Engine, pickMimeType } from './audio.js';
 import { makeZip, readZip } from './zip.js';
 
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.1.1';
 const MIN_DURATION = 1.0; // seconds; shorter clips are discarded
 const MIN_BYTES = 800;
 
@@ -292,18 +292,32 @@ function downloadFile(file) {
   setTimeout(() => URL.revokeObjectURL(url), 15000);
 }
 
+let shareRetryKey = null;
 async function shareOrDownload(file) {
+  const key = `${file.name}|${file.size}`;
   if (navigator.canShare?.({ files: [file] })) {
+    // Read before share() consumes it: was this call still inside a fresh tap?
+    const hadActivation = navigator.userActivation ? navigator.userActivation.isActive : false;
     try {
       await navigator.share({ files: [file] });
+      shareRetryKey = null;
       return 'shared';
     } catch (e) {
       if (e.name === 'AbortError') return 'cancelled';
-      if (e.name === 'NotAllowedError') { toast('Ready. Tap Share again'); return 'retry'; }
+      // NotAllowedError right after a tap means this browser won't share this file
+      // type (desktop Chrome does this). Only ask for another tap once, and only when
+      // the tap had expired (iOS, after a slow load).
+      if (e.name === 'NotAllowedError' && !hadActivation && shareRetryKey !== key) {
+        shareRetryKey = key;
+        toast('Ready. Tap Share again');
+        return 'retry';
+      }
       console.warn('share failed, downloading instead', e);
     }
   }
+  shareRetryKey = null;
   downloadFile(file);
+  toast(`Saved to Downloads: ${file.name}`);
   return 'downloaded';
 }
 
