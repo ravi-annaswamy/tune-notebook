@@ -71,6 +71,11 @@
 - Browser: import → 3 analysed in ~2.3 s in the worker, max frame gap 9 ms, Sa choice persists, a new fake-mic take is auto-analysed (90 BPM, Sa G). Gotcha: the SW serves a stale app.js after edits, so clear the SW + caches before re-testing (already in CLAUDE.md).
 - sw.js v1.2.0 precaches pitch/analyze/analysis-client/analyze-worker. Committed locally, not pushed.
 
+## 2026-10-18 14:24 · Deployed v1.2.0
+- Pushed d6b3d97 (+ the v1.1.1 log commit). Pages build finished in about 20 s. The live sw.js is v1.2.0 and all 4 new scripts return 200.
+- Live check: a browser on v1.1.1 got the "new version" toast. A synthetic take (100 BPM, Sa G) run through the live app's own analysis path gave 100 BPM / Sa G in the Web Worker (0 inline fallbacks). After activation only the v1.2.0 cache remains, with 16 files (offline analysis works).
+- Finding: the update toast hides after 9 s. A click after that falls through and the new version waits until the app is fully closed and reopened. Not a bug, but easy to miss. Option: keep the update bar until tapped.
+
 ---
 ### User prompts
 1. (Build brief: see bottom of README.md for the full text.) Build the "Tune Notebook" PWA: record with tap tempo, Sa detection and a tanpura drone mixed in; IndexedDB storage; share/export; offline; deploy and iPhone install guide; test mic denied / phone-call interruption / very short clips.
@@ -85,3 +90,4 @@
 10. "Yes, push the local commits to GitHub so the live app updates."
 11. "on mac. when I run, I recoreded a tune, but when doe analyze run?"
 12. "Do this task here: Add in-app Analyse button for tempo and Sa"
+13. "Yes, push v1.2.0 to GitHub so the live app updates."
