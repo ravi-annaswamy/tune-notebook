@@ -44,6 +44,15 @@
 - **Fix:** read navigator.userActivation.isActive before share(). If the click was fresh, or this file (name+size) was already retried once, fall back to a download and say "Saved to Downloads: …". Tested both paths in the pane: real click → immediate download; scripted (no activation) → asks once, then downloads.
 - Version bumped to v1.1.1 (sw.js + APP_VERSION). Committed locally, not pushed.
 
+## 2026-10-18 12:50 · First melody analysis (tools/analyze-tune.mjs)
+- User exported a 3-tune backup (Chrome, Mac) into samples/ (git-ignored). Decoded with afconvert.
+- Clicks: second-difference (high-pass) energy in 5 ms frames, 40× median threshold, 120 ms min gap. The whistle (640–1600 Hz) barely registers, so clicks separate cleanly.
+- Tempo: a rigid grid fit chose half-beats (172/192 BPM) and lost beats to drift. Replaced it with an adaptive beat follower seeded by the median click gap. Results: 85 / 86 / 96 BPM, ±29–56 ms wobble, steady across each take.
+- Meter: click accents under 3 dB for every grouping, so it isn't readable. Suggest louder beat 1 or saying "one".
+- Pitch: YIN (150–4200 Hz) on 10 ms hops, skipping ±30 ms around clicks. A global tuning offset (circular mean) shows the whistle sits −33…−39 cents from A440. Steady notes ≥ 80 ms, repeats merged, notes < 120 ms ignored for the scale.
+- Sa: score = Sa time + Pa time + best scale-template coverage + last-long-note bonus − no-Pa penalty. Tune 1: A# Bilaval (good). Tune 2: C#/E/A ambiguous (relative keys). Tune 3: D# Asavari vs F# Bilaval.
+- Report: samples/analysis-2026-10-18.md (git-ignored, personal).
+
 ---
 ### User prompts
 1. (Build brief: see bottom of README.md for the full text.) Build the "Tune Notebook" PWA: record with tap tempo, Sa detection and a tanpura drone mixed in; IndexedDB storage; share/export; offline; deploy and iPhone install guide; test mic denied / phone-call interruption / very short clips.
@@ -53,3 +62,4 @@
 5. "I have saved one tune in whistle, with my clicks for each beat."
 6. "I ran app on local host 8080 on mac and saved"
 7. "when I click export it says ready click share again, but then nothing happens when i click"
+8. "I moved the tune file into ~/projects/tune-notebook/samples/. Analyse it."

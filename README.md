@@ -32,6 +32,7 @@ js/pitch.js           YIN pitch detection + note naming (not loaded by the app; 
 js/db.js              IndexedDB (tunes, audio, in-progress chunks)
 js/zip.js             zip writer/reader for backups
 icons/                app icons (regenerate with tools/make_icons.py, needs Pillow)
+tools/analyze-tune.mjs  offline analysis: clicks → tempo, whistle → Sa, scale, sargam (node, macOS afconvert)
 tests/unit.test.mjs   node tests for pitch + zip  (npm test)
 .nojekyll             tells GitHub Pages to serve files as-is
 ```
