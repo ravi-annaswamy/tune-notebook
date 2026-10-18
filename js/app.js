@@ -2,7 +2,7 @@ import * as db from './db.js';
 import { Engine, pickMimeType } from './audio.js';
 import { makeZip, readZip } from './zip.js';
 
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '1.1.0';
 const MIN_DURATION = 1.0; // seconds; shorter clips are discarded
 const MIN_BYTES = 800;
 
@@ -10,9 +10,7 @@ const $ = (s) => document.querySelector(s);
 const els = {
   recordBtn: $('#recordBtn'), list: $('#list'), empty: $('#empty'), storageInfo: $('#storageInfo'),
   rowTpl: $('#rowTpl'), recPanel: $('#recPanel'), recTime: $('#recTime'), awakeInfo: $('#awakeInfo'),
-  meterFill: $('#meterFill'), tapBtn: $('#tapBtn'), bpmValue: $('#bpmValue'), tapInfo: $('#tapInfo'),
-  saBtn: $('#saBtn'), saValue: $('#saValue'), saInfo: $('#saInfo'), clickToggle: $('#clickToggle'),
-  droneToggle: $('#droneToggle'), stopBtn: $('#stopBtn'), toast: $('#toast'),
+  meterFill: $('#meterFill'), stopBtn: $('#stopBtn'), toast: $('#toast'),
   confirmDlg: $('#confirmDlg'), confirmCancel: $('#confirmCancel'), confirmTitle: $('#confirmTitle'), confirmBody: $('#confirmBody'), confirmOk: $('#confirmOk'),
   menuBtn: $('#menuBtn'), menuDlg: $('#menuDlg'), exportZipBtn: $('#exportZipBtn'), exportSeqBtn: $('#exportSeqBtn'),
   importBtn: $('#importBtn'), importInput: $('#importInput'), persistInfo: $('#persistInfo'), persistBtn: $('#persistBtn'),
@@ -505,7 +503,6 @@ async function startRecording() {
   acquireWakeLock();
   meterLoop();
   requestPersist();
-  if (!engine.mixed) toast("Recording the mic only: this browser can't mix in the click and drone");
 }
 
 function abortStart(report) {
@@ -532,9 +529,7 @@ async function stopRecording(reason) {
   const { engine, session: s } = state;
   const duration = elapsedSec();
   els.stopBtn.disabled = true;
-  saListen?.cancel();
   cancelAnimationFrame(meterRaf);
-  clearTimeout(tap.restoreT);
 
   await engine.stopRecorder();
   engine.dispose();
@@ -584,128 +579,15 @@ function meterLoop() {
   const dbfs = 20 * Math.log10(rms + 1e-6);
   els.meterFill.style.transform = `scaleX(${clamp((dbfs + 60) / 60, 0, 1)})`;
   els.recTime.textContent = fmtDur(elapsedSec());
-  if (eng.consumeBeat()) {
-    els.bpmValue.classList.remove('beat');
-    void els.bpmValue.offsetWidth;
-    els.bpmValue.classList.add('beat');
-  }
   meterRaf = requestAnimationFrame(meterLoop);
 }
 
 function resetRecUI() {
-  tap.times = [];
-  tap.prevBpm = null;
   els.recTime.textContent = '0:00';
-  els.bpmValue.textContent = '—';
-  els.tapInfo.textContent = 'Tap 4+ times on the beat';
-  els.saValue.textContent = '—';
-  els.saInfo.textContent = 'Tap, then sing your root ~2 s';
-  els.saBtn.classList.remove('listening');
+  els.meterFill.style.transform = 'scaleX(0)';
   els.awakeInfo.textContent = '';
-  for (const [b, label] of [[els.clickToggle, 'Click'], [els.droneToggle, 'Drone']]) {
-    b.setAttribute('aria-pressed', 'true');
-    b.textContent = `${label} on`;
-  }
 }
 
-// ---------- tap tempo ----------
-const tap = { times: [], prevBpm: null, restoreT: 0 };
-const TAP_RESET_GAP = 2.0; // seconds of silence starts a new tap sequence
-
-function onTap() {
-  const eng = state.engine;
-  const s = state.session;
-  if (!eng || state.mode !== 'recording') return;
-  const now = eng.ctx.currentTime;
-
-  els.tapBtn.classList.add('flash');
-  setTimeout(() => els.tapBtn.classList.remove('flash'), 90);
-
-  const last = tap.times[tap.times.length - 1];
-  if (last !== undefined && now - last > TAP_RESET_GAP) tap.times = [];
-  if (tap.times.length === 0 && s.bpm) {
-    // Re-tapping: silence the old click so it doesn't fight the new beat.
-    tap.prevBpm = s.bpm;
-    eng.stopTempo();
-  }
-  tap.times.push(now);
-  if (tap.times.length > 8) tap.times.shift();
-  clearTimeout(tap.restoreT);
-
-  if (tap.times.length >= 4) {
-    const t = tap.times;
-    const avg = (t[t.length - 1] - t[0]) / (t.length - 1);
-    const bpm = clamp(Math.round(60 / avg), 30, 300);
-    s.bpm = bpm;
-    tap.prevBpm = null;
-    eng.setTempo(bpm, now);
-    els.bpmValue.textContent = bpm;
-    els.tapInfo.textContent = 'Tap again any time to change';
-    persistSessionMeta();
-  } else {
-    els.tapInfo.textContent = `Tap ${tap.times.length} of 4…`;
-    tap.restoreT = setTimeout(() => {
-      if (tap.times.length >= 4 || !state.engine) return;
-      tap.times = [];
-      if (tap.prevBpm) {
-        state.engine.setTempo(tap.prevBpm, state.engine.ctx.currentTime);
-        tap.prevBpm = null;
-      }
-      els.tapInfo.textContent = s.bpm ? 'Tap again any time to change' : 'Tap 4+ times on the beat';
-    }, (TAP_RESET_GAP + 0.3) * 1000);
-  }
-}
-
-// pointerdown gives the most accurate tap timing; click covers keyboard activation.
-els.tapBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); onTap(); });
-els.tapBtn.addEventListener('click', (e) => { if (e.detail === 0) onTap(); });
-
-// ---------- Set Sa ----------
-let saListen = null;
-async function onSetSa() {
-  const eng = state.engine;
-  const s = state.session;
-  if (!eng || saListen || state.mode !== 'recording') return;
-  els.saBtn.classList.add('listening');
-  els.saValue.textContent = '…';
-  els.saInfo.textContent = 'Listening. Sing and hold Sa';
-  eng.duckDrone(true);
-  let shown = null;
-  saListen = eng.listenForSa({
-    onFrame: (est, progress) => {
-      if (est) shown = est.name;
-      els.saValue.textContent = shown || '…';
-      els.saInfo.textContent = `Listening… ${Math.round(progress * 100)}%`;
-    },
-  });
-  const res = await saListen.promise;
-  saListen = null;
-  els.saBtn.classList.remove('listening');
-  if (state.engine !== eng || res.reason === 'cancelled') return;
-  if (!res.ok) {
-    eng.duckDrone(false);
-    els.saValue.textContent = s.sa ? s.sa.name : '—';
-    els.saInfo.textContent = res.reason === 'quiet'
-      ? "Couldn't hear a note. Tap and sing louder or closer"
-      : 'Pitch wandered. Tap and hold one steady note';
-    return;
-  }
-  s.sa = { name: res.name, octave: res.octave, midi: res.midi, freq: Math.round(res.freq * 100) / 100 };
-  eng.setSa(res.freq);
-  els.saValue.textContent = res.name;
-  els.saInfo.textContent = `${res.name}${res.octave} · tap to set again`;
-  persistSessionMeta();
-}
-els.saBtn.addEventListener('click', onSetSa);
-
-function toggleChip(btn, label, apply) {
-  const on = btn.getAttribute('aria-pressed') !== 'true';
-  btn.setAttribute('aria-pressed', String(on));
-  btn.textContent = `${label} ${on ? 'on' : 'off'}`;
-  apply(on);
-}
-els.clickToggle.addEventListener('click', () => toggleChip(els.clickToggle, 'Click', (on) => state.engine?.setClickOn(on)));
-els.droneToggle.addEventListener('click', () => toggleChip(els.droneToggle, 'Drone', (on) => state.engine?.setDroneOn(on)));
 els.stopBtn.addEventListener('click', () => stopRecording());
 els.recordBtn.addEventListener('click', startRecording);
 

@@ -37,37 +37,22 @@
     <ul id="list" class="list" aria-label="Saved tunes"></ul>
     <div id="empty" class="empty" hidden>
       <p class="empty-title">No tunes yet</p>
-      <p>Tap <b>Record</b>, tap the beat, sing your Sa, then hum the idea.</p>
+      <p>Tap <b>Record</b> and hum, whistle or sing. Everything you do is captured as is.</p>
     </div>
     <p id="storageInfo" class="storage-info"></p>
   </main>
 
   <!-- Full-screen recording panel -->
   <section id="recPanel" class="rec-panel" hidden aria-label="Recording">
-    <div class="rec-top">
-      <div class="rec-status">
-        <span class="rec-dot" aria-hidden="true"></span>
-        <span id="recTime" class="rec-time">0:00</span>
-        <span id="awakeInfo" class="awake-info"></span>
-      </div>
-      <div class="meter" aria-hidden="true"><div id="meterFill" class="meter-fill"></div></div>
+    <div class="rec-status">
+      <span class="rec-dot" aria-hidden="true"></span>
+      <span class="rec-label">Recording</span>
+      <span id="awakeInfo" class="awake-info"></span>
     </div>
 
-    <button id="tapBtn" class="pad tap-pad" aria-label="Tap tempo">
-      <span class="pad-title">Tap tempo</span>
-      <span id="bpmValue" class="pad-value">—</span>
-      <span id="tapInfo" class="pad-sub">Tap 4+ times on the beat</span>
-    </button>
-
-    <button id="saBtn" class="pad sa-pad" aria-label="Set Sa">
-      <span class="pad-title">Set Sa</span>
-      <span id="saValue" class="pad-value">—</span>
-      <span id="saInfo" class="pad-sub">Tap, then sing your root ~2 s</span>
-    </button>
-
-    <div class="mix-row">
-      <button id="clickToggle" class="chip" aria-pressed="true">Click on</button>
-      <button id="droneToggle" class="chip" aria-pressed="true">Drone on</button>
+    <div class="rec-center">
+      <span id="recTime" class="rec-time">0:00</span>
+      <div class="meter" aria-hidden="true"><div id="meterFill" class="meter-fill"></div></div>
     </div>
 
     <button id="stopBtn" class="stop-btn"><span class="sq" aria-hidden="true"></span>Stop &amp; save</button>

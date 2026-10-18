@@ -1,6 +1,6 @@
 # Tune Notebook
 
-A tiny offline web app for catching melody ideas while you walk. Tap **Record**, tap the beat, sing your **Sa**, hum the tune, tap **Stop**. The metronome click and a tanpura-style drone are mixed into the recording, so each clip keeps its own tempo and key.
+A tiny offline web app for catching melody ideas while you walk. Tap **Record**, hum or whistle, tap **Stop**. Nothing gets between you and the idea: no tempo or key setup, the mic is recorded as is.
 
 Plain HTML/CSS/JS, no build step, no backend. Hosted on GitHub Pages, installed to the iPhone Home Screen.
 
@@ -8,16 +8,14 @@ Plain HTML/CSS/JS, no build step, no backend. Hosted on GitHub Pages, installed 
 
 ## How to use it
 
-1. **Record**: one tap. The mic starts right away (the first time, iOS asks for permission).
-2. **Tap tempo**: tap the big green pad 4 or more times on the beat. A soft click starts on your beat. To change the tempo later, pause about 2 s and tap a new sequence.
-3. **Set Sa**: tap the orange pad and sing your root for about 2 seconds. The app snaps it to the nearest semitone (e.g. **C#**) and starts a drone (Pa, upper Sa, upper Sa, Sa). Tap again to re-set it.
-4. Hum or whistle the idea. **Click on/off** and **Drone on/off** mute either one; the mute is recorded too.
-5. **Stop & save**. The tune shows at the top of the list.
+1. **Record**: one tap. The mic starts right away (the first time, iOS asks for permission). The screen shows a big timer, a level meter, and a large **Stop & save** button.
+2. Sing, hum or whistle. Useful habit: **clap or tap the beat** and **sing your Sa** at the start. It's all in the recording, so tempo and key can be worked out from the audio later.
+3. **Stop & save**. The tune shows at the top of the list.
 
 In the list: tap the **name** to rename, **▶** to play or pause (tap the bar to seek), **share** to send the audio file to Files, WhatsApp, Drive and so on, and **trash** to delete (asks first).
 
 **Backup** (⋯ menu):
-- **Export all as .zip**: the first tap builds the zip, the second tap shares or saves it. Includes every clip plus `tunes.json` with names, BPM and Sa.
+- **Export all as .zip**: the first tap builds the zip, the second tap shares or saves it. Includes every clip plus `tunes.json` with names, dates and durations.
 - **Share one by one**: one share sheet per tune.
 - **Import**: takes that zip (or loose audio files) to restore. Tunes already on the phone are skipped.
 
@@ -29,8 +27,8 @@ styles.css            dark/light styles, big touch targets, safe areas
 manifest.json         PWA manifest
 sw.js                 service worker (offline cache). Bump VERSION on each deploy
 js/app.js             UI, record flow, list, share/export/import, recovery
-js/audio.js           Web Audio engine: mic + click + drone mix, MediaRecorder, interruptions
-js/pitch.js           YIN pitch detection and note naming
+js/audio.js           mic capture (MediaRecorder), level meter, interruption detection
+js/pitch.js           YIN pitch detection + note naming (not loaded by the app; kept for future tempo/key analysis)
 js/db.js              IndexedDB (tunes, audio, in-progress chunks)
 js/zip.js             zip writer/reader for backups
 icons/                app icons (regenerate with tools/make_icons.py, needs Pillow)
@@ -81,7 +79,7 @@ gh repo create tune-notebook --public --source=. --push
 
 ### Tips for walking
 
-- Wired or Bluetooth earphones give the cleanest recording: the drone and click are mixed in digitally, so the mic only hears you. On the speaker, echo cancellation keeps most of the drone out of the mic.
+- The mic records as is: echo cancellation, noise suppression and auto-gain are off, because they flatten hums and whistles. In strong wind, cup the phone or turn away from the wind.
 - The **silent switch** doesn't block playback in the list (the app plays as media).
 - The screen stays on while recording (Wake Lock, iOS 16.4+, reliable in Home Screen apps from iOS 18.4). If the app shows "Screen may auto-lock", set **Settings → Display & Brightness → Auto-Lock** longer. **Locking the phone or switching apps ends the recording** (iOS turns off web-app mics in the background). The app saves everything up to that moment.
 
@@ -97,11 +95,14 @@ gh repo create tune-notebook --public --source=. --push
 | App sent to background / screen locked (iOS) | Recording is stopped and saved immediately. |
 | **Very short clip** (< 1 s or nearly empty) | Not saved: "Too short to keep." No clutter, no leftover data. |
 | Double-tapping Record/Stop | Ignored while starting/stopping (state machine). |
-| Sa: silence or unsteady pitch | "Couldn't hear a note…" / "Pitch wandered…"; the previous Sa and drone are kept. |
 | Share needs a fresh tap on iOS | Audio is preloaded as your finger touches the button. If iOS still refuses, the app says "Ready. Tap Share again". |
 | Storage error while saving | The take stays in the recovery store and is restored on next launch. |
 
-### What was tested (2026-10-17)
+### What was tested
+
+**v1.1.0 (2026-10-18), simplified capture:** recording screen shows only timer, meter and Stop. Verified the mic is requested with echo cancellation, noise suppression and auto-gain off. The saved file is the clean mic signal: the test tone is present and there's no click or drone energy. Phone-call interruption, mic `ended`, short clip (0.4 s) and crash recovery all still behave as below. Older tunes that have BPM/Sa still show them.
+
+**v1.0.0 (2026-10-17), with tap tempo and drone (since removed):**
 
 Automated in desktop Chromium (mobile viewport) with a synthetic mic signal, plus `npm test` (7 node unit tests: YIN accuracy within 15 cents from 82–880 Hz, silence/noise rejection, semitone snapping with octave-error outliers, zip round trip, CRC):
 
@@ -114,7 +115,7 @@ Automated in desktop Chromium (mobile viewport) with a synthetic mic signal, plu
 - Play/pause/progress, rename, delete (cancel and confirm), export zip → delete all → import → **identical** metadata and audio. Re-import skips duplicates. The zip passes `unzip -t`.
 - Server stopped → app loads from the service worker with all tunes.
 
-**Not verifiable off-device; please check on your iPhone:** a real phone call mid-recording, the iOS share sheet (Files/WhatsApp), Wake Lock in the installed app, and how the drone and click sound on the iPhone speaker.
+**Not verifiable off-device; please check on your iPhone:** a real phone call mid-recording, the iOS share sheet (Files/WhatsApp), Wake Lock in the installed app, and recording quality outdoors.
 
 ## Development
 
@@ -144,3 +145,5 @@ To try it on your iPhone before deploying, the page must be served over HTTPS (t
 > Follow-up during the build: "what is happening why still stuck on step 1?"
 >
 > Then: "Yes, create the tune-notebook GitHub repo and deploy it to GitHub Pages."
+>
+> Then: "Setting tempo and Sa makes the capturing of the tune interrupting flow. How about just capturing it as is, I will probably click the tempo to start with and sing the sa note, as part of recording, later we can figure out a way to recover the tempo and time signature and key signature and scale from melody itself"

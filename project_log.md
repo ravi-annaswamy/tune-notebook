@@ -31,8 +31,16 @@
 - GitHub Pages enabled via API (main, root). First build finished in about 20 s.
 - Live: https://ravi-annaswamy.github.io/tune-notebook/. Verified HTTP 200 for page/sw/manifest/js/icons; in the browser the SW registered at the /tune-notebook/ scope and cached all 13 files.
 
+## 2026-10-18 11:51 · v1.1.0: capture as is
+- User feedback: setting tempo and Sa mid-capture breaks the flow. They'll clap the beat and sing Sa inside the recording; tempo/meter/key/scale analysis comes later.
+- Removed the tap-tempo pad, Set Sa pad, click/drone toggles, metronome and tanpura synthesis. The recording screen is now: status, 96 px timer, level meter, 160 px Stop button.
+- audio.js now records the raw mic stream directly (no Web Audio mix). echoCancellation/noiseSuppression/autoGainControl are all false. An AudioContext is kept only for the meter and interruption detection.
+- pitch.js stays in the repo (tested) for the future analysis, but is no longer precached. sw.js VERSION is v1.1.0, APP_VERSION 1.1.0.
+- Re-tested in the pane: constraints, clean decoded signal (196 Hz tone present, no energy at Pa), call/ended interruptions, short clip, crash recovery. npm test 7/7.
+
 ---
 ### User prompts
 1. (Build brief: see bottom of README.md for the full text.) Build the "Tune Notebook" PWA: record with tap tempo, Sa detection and a tanpura drone mixed in; IndexedDB storage; share/export; offline; deploy and iPhone install guide; test mic denied / phone-call interruption / very short clips.
 2. "what is happening why still stuck on step 1?"
 3. "Yes, create the tune-notebook GitHub repo and deploy it to GitHub Pages."
+4. "Setting tempo and Sa makes the capturing of the tune interrupting flow. How about just capturing it as is… later we can figure out a way to recover the tempo and time signature and key signature and scale from melody itself"
