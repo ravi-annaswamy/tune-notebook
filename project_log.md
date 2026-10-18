@@ -61,6 +61,16 @@
 - Pushed 4 commits (capture-as-is, share fix, analyser, log). Pages build for 4b10499 finished in about 20 s; the live sw.js reports v1.1.1.
 - Verified the upgrade path on the live site: a browser holding the v1.0.0 cache showed "A new version is ready · Update". Tapping it reloaded into v1.1.1 (no tempo/Sa pads) and deleted the old cache.
 
+## 2026-10-18 14:20 · v1.2.0: in-app analysis
+- User asked when analysis runs (it didn't: CLI only). Built it into the app, in this session.
+- js/analyze.js: the analysis moved out of the CLI into a pure shared module. analyseSamples() returns a compact JSON result (tempo + curve, meter, tuning, hist, top-4 Sa candidates, notes as [start, dur, midi]). The CLI is now a thin wrapper; its output matched the earlier report exactly (labels aside).
+- js/analysis-client.js decodes with OfflineAudioContext (mono, 48 kHz), then a module Web Worker (js/analyze-worker.js) runs the analysis. Falls back inline if the worker can't load; samples are copied so the fallback still has them. analysisStats counts worker vs inline (window.tuneNotebook).
+- app.js: a sequential queue that waits while recording (notifyIdle on every return to idle). Triggers: after Stop, after import, and at boot for any tune without analysis or with an older ANALYSIS_VERSION. applyAnalysis never overwrites user-chosen or v1.0 tap-tempo values (bpmSource / sa.source). Deleted tunes are re-checked before writing, so they can't be resurrected.
+- UI: row meta shows BPM · Sa · scale · duration, plus status (Analysing…/Waiting/failed). Tapping the meta opens details: tempo range, time-sig hint, Sa candidate chips (tap to choose, saved as source 'user'), scale, swaras ≥3%, Sa Hz + tuning, sargam relative to the chosen Sa, Analyse again.
+- tests/analyze.test.mjs: synthetic take (90 BPM, −30¢, D Bilaval, exact sargam prefix), 3/4 accents, no clicks, silence, Sa octave, and a regression on the user's 3 confirmed takes (skipped if samples/ is missing). 13/13 pass.
+- Browser: import → 3 analysed in ~2.3 s in the worker, max frame gap 9 ms, Sa choice persists, a new fake-mic take is auto-analysed (90 BPM, Sa G). Gotcha: the SW serves a stale app.js after edits, so clear the SW + caches before re-testing (already in CLAUDE.md).
+- sw.js v1.2.0 precaches pitch/analyze/analysis-client/analyze-worker. Committed locally, not pushed.
+
 ---
 ### User prompts
 1. (Build brief: see bottom of README.md for the full text.) Build the "Tune Notebook" PWA: record with tap tempo, Sa detection and a tanpura drone mixed in; IndexedDB storage; share/export; offline; deploy and iPhone install guide; test mic denied / phone-call interruption / very short clips.
@@ -73,3 +83,5 @@
 8. "I moved the tune file into ~/projects/tune-notebook/samples/. Analyse it."
 9. "Yes, those Sa guesses match what I had in mind."
 10. "Yes, push the local commits to GitHub so the live app updates."
+11. "on mac. when I run, I recoreded a tune, but when doe analyze run?"
+12. "Do this task here: Add in-app Analyse button for tempo and Sa"

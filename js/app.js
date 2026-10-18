@@ -1,8 +1,11 @@
 import * as db from './db.js';
 import { Engine, pickMimeType } from './audio.js';
 import { makeZip, readZip } from './zip.js';
+import { ANALYSIS_VERSION, SWARA, saMidiFor, sargamString } from './analyze.js';
+import { analyseAudio, analysisStats } from './analysis-client.js';
+import { midiToFreq } from './pitch.js';
 
-const APP_VERSION = '1.1.1';
+const APP_VERSION = '1.2.0';
 const MIN_DURATION = 1.0; // seconds; shorter clips are discarded
 const MIN_BYTES = 800;
 
@@ -143,8 +146,164 @@ function fillRow(li, t) {
   li.querySelector('.name').textContent = t.name;
   li.querySelector('.m-bpm').textContent = t.bpm ? `${t.bpm} BPM` : '';
   li.querySelector('.m-sa').textContent = t.sa ? `Sa ${t.sa.name}` : '';
+  li.querySelector('.m-scale').textContent = t.sa?.scale || '';
   li.querySelector('.m-dur').textContent = fmtDur(t.duration);
+  li.querySelector('.m-status').textContent = analysisStatus(t);
   li.querySelector('.play').setAttribute('aria-label', `Play ${t.name}`);
+  const open = openDetails.has(t.id);
+  li.classList.toggle('open', open);
+  li.querySelector('.meta').setAttribute('aria-expanded', String(open));
+  const details = li.querySelector('.details');
+  details.hidden = !open;
+  if (open) renderDetails(details, t);
+}
+
+function refreshRow(id) {
+  const li = rowFor(id);
+  const t = tuneById(id);
+  if (li && t) fillRow(li, t);
+}
+
+// ---------- analysis (tempo from clicks, Sa, scale, sargam) ----------
+const openDetails = new Set();
+const analysing = new Set();
+const analysisQueue = [];
+let pumping = false;
+let idleWaiters = [];
+
+const needsAnalysis = (t) => !t.analysis || (t.analysis.version || 0) < ANALYSIS_VERSION;
+const whenIdle = () => (state.mode === 'idle' ? Promise.resolve() : new Promise((r) => idleWaiters.push(r)));
+function notifyIdle() {
+  const w = idleWaiters;
+  idleWaiters = [];
+  w.forEach((f) => f());
+}
+
+function analysisStatus(t) {
+  if (analysing.has(t.id)) return 'Analysing…';
+  if (analysisQueue.includes(t.id)) return 'Waiting to analyse';
+  if (t.analysis?.error) return 'Analysis failed';
+  return '';
+}
+
+function queueAnalysis(id, { front = false } = {}) {
+  if (analysing.has(id) || analysisQueue.includes(id)) return;
+  if (front) analysisQueue.unshift(id);
+  else analysisQueue.push(id);
+  refreshRow(id);
+  pump();
+}
+
+// One clip at a time, and never while recording, so capture is never disturbed.
+async function pump() {
+  if (pumping) return;
+  pumping = true;
+  try {
+    while (analysisQueue.length) {
+      await whenIdle();
+      const id = analysisQueue.shift();
+      if (!tuneById(id)) continue;
+      analysing.add(id);
+      refreshRow(id);
+      let result;
+      try {
+        const rec = await db.getAudio(id);
+        if (!rec) throw new Error('audio missing');
+        result = await analyseAudio(rec.data);
+      } catch (e) {
+        warn(e);
+        result = { version: ANALYSIS_VERSION, error: e.message || 'failed' };
+      }
+      analysing.delete(id);
+      const t = tuneById(id); // re-read: it may have been deleted meanwhile
+      if (!t) continue;
+      applyAnalysis(t, result);
+      try { await db.updateTune(t); } catch (e) { warn(e); }
+      refreshRow(id);
+    }
+  } finally {
+    pumping = false;
+  }
+}
+
+function saFromCandidate(a, c, source) {
+  const midi = saMidiFor(a.notes.map(([, , m]) => ({ midi: m })), c.pc);
+  return {
+    name: c.name, octave: Math.floor(midi / 12) - 1, midi,
+    freq: Math.round(midiToFreq(midi + (a.tuningCents || 0) / 100) * 10) / 10,
+    scale: c.scale, western: c.western, source,
+  };
+}
+
+// Fill BPM and Sa from the analysis, but never overwrite values the user chose
+// (or set with tap tempo / Set Sa in v1.0).
+function applyAnalysis(t, a) {
+  t.analysis = a;
+  if (a.error) return;
+  if (t.bpm == null || t.bpmSource === 'auto') {
+    t.bpm = a.tempo ? Math.round(a.tempo.bpm) : null;
+    t.bpmSource = 'auto';
+  }
+  if (!t.sa || t.sa.source === 'auto') {
+    t.sa = a.candidates.length ? saFromCandidate(a, a.candidates[0], 'auto') : null;
+  }
+}
+
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
+
+function renderDetails(box, t) {
+  box.replaceChildren();
+  const a = t.analysis;
+  const reBtn = el('button', 'btn reanalyse', analysing.has(t.id) ? 'Analysing…' : 'Analyse again');
+  reBtn.disabled = analysing.has(t.id) || analysisQueue.includes(t.id);
+  if (!a || a.error) {
+    box.append(el('p', 'd-note', a?.error ? `Analysis failed: ${a.error}` : analysisStatus(t) || 'Not analysed yet.'), reBtn);
+    return;
+  }
+  const row = (label, value) => {
+    const r = el('div', 'd-row');
+    r.append(el('span', 'd-label', label), el('span', 'd-value', value));
+    box.append(r);
+  };
+
+  if (a.tempo) {
+    row('Tempo', `${Math.round(a.tempo.bpm)} BPM · mostly ${a.tempo.low}–${a.tempo.high} · from ${a.tempo.beats} clicks`);
+    row('Time sig.', a.meter?.guess ? `${a.meter.guess} (beat 1 accented)` : 'Not readable. Make beat 1 louder (clap on 1) or say "one".');
+  } else {
+    row('Tempo', 'No steady clicks found. Click the beat while you record.');
+  }
+
+  if (a.candidates.length) {
+    box.append(el('div', 'd-label d-block', 'Sa: best guess first, tap to choose'));
+    const choices = el('div', 'sa-choices');
+    for (const c of a.candidates.slice(0, 4)) {
+      const b = el('button', 'sa-choice');
+      b.dataset.pc = c.pc;
+      b.setAttribute('aria-pressed', String(t.sa?.name === c.name));
+      b.append(el('span', 'sa-note', c.name), el('span', 'sa-scale', c.scale));
+      choices.append(b);
+    }
+    box.append(choices);
+    if (t.sa?.midi != null) {
+      const cents = a.tuningCents || 0;
+      const tuning = Math.abs(cents) < 5 ? 'in tune with A440' : `${Math.abs(cents)}¢ ${cents < 0 ? 'flat' : 'sharp'} of A440`;
+      row('Scale', `${t.sa.scale || '—'}${t.sa.western ? ` (${t.sa.western})` : ''}`);
+      const heard = SWARA.filter((_, k) => (a.hist[(t.sa.midi % 12 + k) % 12] || 0) >= 0.03);
+      row('Swaras', heard.join(' '));
+      row('Pitch', `Sa ≈ ${t.sa.freq} Hz · you're ${tuning}`);
+      const notes = a.notes.map(([, dur, midi]) => ({ dur, midi }));
+      box.append(el('div', 'd-label d-block', "Sargam sketch (' upper, . lower octave, — held beat)"));
+      box.append(el('p', 'sargam', sargamString(notes, t.sa.midi, t.bpm)));
+    }
+  } else {
+    row('Sa', 'Not enough steady notes to tell.');
+  }
+  box.append(reBtn);
 }
 
 const rowFor = (id) => els.list.querySelector(`li[data-id="${CSS.escape(id)}"]`);
@@ -370,6 +529,7 @@ async function deleteTune(t) {
     return;
   }
   blobCache.delete(t.id);
+  openDetails.delete(t.id);
   tunes = tunes.filter((x) => x.id !== t.id);
   render();
   toast('Deleted');
@@ -387,6 +547,23 @@ els.list.addEventListener('click', (e) => {
   if (!li) return;
   const t = tuneById(li.dataset.id);
   if (!t) return;
+  if (e.target.closest('.meta')) {
+    if (openDetails.has(t.id)) openDetails.delete(t.id);
+    else openDetails.add(t.id);
+    fillRow(li, t);
+    return;
+  }
+  const choice = e.target.closest('.sa-choice');
+  if (choice && t.analysis?.candidates) {
+    const c = t.analysis.candidates.find((x) => String(x.pc) === choice.dataset.pc);
+    if (c) {
+      t.sa = saFromCandidate(t.analysis, c, 'user');
+      db.updateTune(t).catch(warn);
+      fillRow(li, t);
+    }
+    return;
+  }
+  if (e.target.closest('.reanalyse')) { queueAnalysis(t.id, { front: true }); return; }
   if (e.target.closest('.play')) togglePlay(t.id);
   else if (e.target.closest('.share')) shareTune(t);
   else if (e.target.closest('.del')) deleteTune(t);
@@ -521,6 +698,7 @@ async function startRecording() {
 
 function abortStart(report) {
   state.mode = 'idle';
+  notifyIdle();
   els.recordBtn.disabled = false;
   setAudioSession('auto');
   report();
@@ -557,6 +735,7 @@ async function stopRecording(reason) {
   state.engine = null;
   state.session = null;
   state.mode = 'idle';
+  notifyIdle();
 
   const type = baseMime(s.mimeType || s.chunks[0]?.type);
   const blob = new Blob(s.chunks, { type });
@@ -581,6 +760,7 @@ async function stopRecording(reason) {
   tunes.unshift(meta);
   render();
   rowFor(meta.id)?.classList.add('fresh');
+  queueAnalysis(meta.id, { front: true });
   toast(`${prefix}Saved ${fmtDur(duration)}`);
 }
 
@@ -802,6 +982,7 @@ async function importFiles(files) {
   }
   tunes = await db.listTunes();
   render();
+  tunes.filter(needsAnalysis).forEach((t) => queueAnalysis(t.id));
   const parts = [`Imported ${added}`];
   if (skipped) parts.push(`${skipped} already here`);
   if (failed) parts.push(`${failed} couldn't be read`);
@@ -893,10 +1074,11 @@ async function boot() {
   }
   render();
   await recoverSessions();
+  tunes.filter(needsAnalysis).forEach((t) => queueAnalysis(t.id));
   if (isStandalone) requestPersist();
 }
 
 boot();
 
 // Exposed for debugging in the console.
-window.tuneNotebook = { state, db, get tunes() { return tunes; } };
+window.tuneNotebook = { state, db, analysisStats, get tunes() { return tunes; } };

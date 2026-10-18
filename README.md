@@ -10,7 +10,16 @@ Plain HTML/CSS/JS, no build step, no backend. Hosted on GitHub Pages, installed 
 
 1. **Record**: one tap. The mic starts right away (the first time, iOS asks for permission). The screen shows a big timer, a level meter, and a large **Stop & save** button.
 2. Sing, hum or whistle. Useful habit: **clap or tap the beat** and **sing your Sa** at the start. It's all in the recording, so tempo and key can be worked out from the audio later.
-3. **Stop & save**. The tune shows at the top of the list.
+3. **Stop & save**. The tune shows at the top of the list, and a moment later it's **analysed automatically** in the background (on the phone, offline): BPM, Sa and scale appear on the row.
+
+**Analysis** (tap the grey line under a tune's name to open it):
+- **Tempo** from your clicks, with the range it moved within. No clicks means no tempo.
+- **Time signature**, only when beat 1 is louder (clap on 1, click on the others). Even clicks can't show it.
+- **Sa**: up to four candidates, best guess first. Tap one to choose it; your choice is kept even if you analyse again. The row, scale, swaras and sargam follow your choice.
+- **Scale** (thaat or pentatonic raga, with the Western name), the **swaras** you used, your **tuning** relative to A440 (whistles are often a bit flat; notes are named relative to *your* pitch), and a **sargam sketch** (`'` upper octave, `.` lower, `—` held beat).
+- **Analyse again** re-runs it. Tunes recorded before this version, imported ones and recovered takes are analysed automatically when the app opens.
+
+Analysis never runs while you're recording, and it runs in a background thread so the app stays responsive. Tempo and Sa set with v1.0's tap-tempo/Set Sa buttons are kept, never overwritten.
 
 In the list: tap the **name** to rename, **▶** to play or pause (tap the bar to seek), **share** to send the audio file to Files, WhatsApp, Drive and so on, and **trash** to delete (asks first).
 
@@ -28,12 +37,16 @@ manifest.json         PWA manifest
 sw.js                 service worker (offline cache). Bump VERSION on each deploy
 js/app.js             UI, record flow, list, share/export/import, recovery
 js/audio.js           mic capture (MediaRecorder), level meter, interruption detection
-js/pitch.js           YIN pitch detection + note naming (not loaded by the app; kept for future tempo/key analysis)
+js/pitch.js           YIN pitch detection + note naming
+js/analyze.js         melody analysis shared by app and CLI: clicks → tempo/meter; pitch → tuning, Sa, scale, sargam
+js/analysis-client.js decodes a clip (Web Audio) and runs the analysis in the worker, queue-free API
+js/analyze-worker.js  Web Worker wrapper around analyze.js
 js/db.js              IndexedDB (tunes, audio, in-progress chunks)
 js/zip.js             zip writer/reader for backups
 icons/                app icons (regenerate with tools/make_icons.py, needs Pillow)
-tools/analyze-tune.mjs  offline analysis: clicks → tempo, whistle → Sa, scale, sargam (node, macOS afconvert)
+tools/analyze-tune.mjs  same analysis from the command line: node tools/analyze-tune.mjs file.m4a (macOS afconvert)
 tests/unit.test.mjs   node tests for pitch + zip  (npm test)
+tests/analyze.test.mjs analysis tests: synthetic takes + your confirmed takes if samples/ has the backup
 .nojekyll             tells GitHub Pages to serve files as-is
 ```
 
@@ -101,6 +114,8 @@ gh repo create tune-notebook --public --source=. --push
 
 ### What was tested
 
+**v1.2.0 (2026-10-18), in-app analysis:** `npm test` passes 13/13. A synthetic whistled D-major phrase, 30 cents flat with clicks at 90 BPM, gives 90 BPM, −30¢, Sa D, Bilaval and the right sargam. Accented every-3rd click gives 3/4. No clicks gives no tempo but still finds Sa. Silence doesn't crash. Your three confirmed takes still give 85/86/96 BPM and Sa A#/C#/D#. In the browser: importing the backup analysed all three in about 2 s in the Web Worker (0 main-thread fallbacks, longest frame gap 9 ms). Choosing a different Sa is saved and survives "Analyse again". A new recording is analysed automatically right after Stop (fake mic at 90 BPM with Sa G gave 90 BPM, Sa G). Not yet timed on an iPhone.
+
 **v1.1.0 (2026-10-18), simplified capture:** recording screen shows only timer, meter and Stop. Verified the mic is requested with echo cancellation, noise suppression and auto-gain off. The saved file is the clean mic signal: the test tone is present and there's no click or drone energy. Phone-call interruption, mic `ended`, short clip (0.4 s) and crash recovery all still behave as below. Older tunes that have BPM/Sa still show them.
 
 **v1.0.0 (2026-10-17), with tap tempo and drone (since removed):**
@@ -147,4 +162,6 @@ To try it on your iPhone before deploying, the page must be served over HTTPS (t
 >
 > Then: "Yes, create the tune-notebook GitHub repo and deploy it to GitHub Pages."
 >
-> Then: "Setting tempo and Sa makes the capturing of the tune interrupting flow. How about just capturing it as is, I will probably click the tempo to start with and sing the sa note, as part of recording, later we can figure out a way to recover the tempo and time signature and key signature and scale from melody itself"
+> Then: "on mac. when I run, I recoreded a tune, but when doe analyze run?" → "Do this task here: Add in-app Analyse button for tempo and Sa"
+>
+> Earlier: "Setting tempo and Sa makes the capturing of the tune interrupting flow. How about just capturing it as is, I will probably click the tempo to start with and sing the sa note, as part of recording, later we can figure out a way to recover the tempo and time signature and key signature and scale from melody itself"

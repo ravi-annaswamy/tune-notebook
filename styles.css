@@ -137,9 +137,42 @@ svg { width: 24px; height: 24px; fill: currentColor; }
   border-radius: 10px; border: 2px solid var(--focus);
   background: var(--bg); color: var(--text);
 }
-.meta { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
-.meta span:not(:empty) + span:not(:empty)::before { content: " · "; }
-.meta .m-sa { color: var(--sa); }
+.meta {
+  display: block; width: 100%;
+  border: 0; background: none; padding: 4px 0; min-height: 32px;
+  text-align: left; color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums;
+}
+.meta span:not(:empty) ~ span:not(:empty)::before { content: " · "; }
+.meta .m-sa { color: var(--sa); font-weight: 600; }
+.meta .m-status { font-style: italic; }
+.meta::after { content: " ▾"; opacity: 0.6; }
+.tune.open .meta::after { content: " ▴"; }
+
+/* Analysis details */
+.details {
+  grid-column: 1 / -1;
+  border-top: 1px solid var(--line);
+  padding: 12px 4px 4px;
+  font-size: 15px;
+}
+.d-row { display: grid; grid-template-columns: 76px 1fr; gap: 8px; padding: 4px 0; }
+.d-label { color: var(--muted); font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; padding-top: 2px; }
+.d-block { display: block; margin: 10px 0 6px; }
+.d-note { color: var(--muted); margin: 0 0 8px; }
+.sa-choices { display: flex; flex-wrap: wrap; gap: 8px; }
+.sa-choice {
+  min-width: 64px; min-height: 52px; padding: 6px 12px;
+  border-radius: 14px; border: 1px solid var(--line); background: var(--surface-2);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+.sa-choice[aria-pressed="true"] { border: 2px solid var(--sa); background: transparent; }
+.sa-note { font-size: 18px; font-weight: 700; color: var(--sa); }
+.sa-scale { font-size: 11px; color: var(--muted); }
+.sargam {
+  font: 15px/1.7 ui-monospace, "SF Mono", Menlo, monospace;
+  margin: 0; overflow-wrap: anywhere; word-spacing: 0.15em;
+}
+.reanalyse { margin-top: 12px; min-height: 44px; font-size: 14px; }
 .progress {
   height: 22px; margin-top: 2px;
   display: flex; align-items: center;
