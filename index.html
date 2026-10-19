@@ -63,11 +63,14 @@
       <div class="meter" aria-hidden="true"><div id="meterFill" class="meter-fill"></div></div>
       <div id="recPrompt" class="rec-prompt" hidden>
         <p id="rpInfo" class="rp-info"></p>
-        <div id="rpChords" class="rp-chords"></div>
+        <p id="rpSection" class="rp-section"></p>
+        <div id="rpGrid" class="rp-grid"></div>
         <div id="rpBeats" class="rp-beats" aria-hidden="true"></div>
         <div class="mix-row">
-          <button id="rpPulse" class="chip" aria-pressed="true">Pulse on</button>
-          <button id="rpGuitar" class="chip" aria-pressed="true">Guitar on</button>
+          <button id="rpClick" class="chip" aria-pressed="true">Click</button>
+          <button id="rpDrums" class="chip" aria-pressed="true">Drums</button>
+          <button id="rpBass" class="chip" aria-pressed="true">Bass</button>
+          <button id="rpChords" class="chip" aria-pressed="true">Chords</button>
         </div>
       </div>
     </div>
@@ -132,16 +135,18 @@
   <dialog id="promptDlg" class="sheet">
     <h2>Prompt</h2>
     <p class="small">Tap a line to change just that part.</p>
+    <button id="prStyle" class="pr-line"><span class="pr-label">Style</span><span class="pr-value" id="prStyleV"></span></button>
     <button id="prTempo" class="pr-line"><span class="pr-label">Tempo</span><span class="pr-value" id="prTempoV"></span></button>
     <button id="prKey" class="pr-line"><span class="pr-label">Sa</span><span class="pr-value" id="prKeyV"></span></button>
     <button id="prChords" class="pr-line"><span class="pr-label">Chords</span><span class="pr-value" id="prChordsV"></span></button>
     <button id="prFeel" class="pr-line"><span class="pr-label">Feel</span><span class="pr-value" id="prFeelV"></span></button>
+    <button id="prForm" class="pr-line"><span class="pr-label">Form</span><span class="pr-value" id="prFormV"></span></button>
     <div class="btn-row">
-      <button id="prShuffle" class="btn">Shuffle all</button>
+      <button id="prShuffle" class="btn">Shuffle</button>
       <button id="prListen" class="btn">Listen</button>
     </div>
     <button id="prRecord" class="btn block danger big">Record over it</button>
-    <p class="small">You get a 2-bar count-in, then the guitar comes in and recording starts by itself. The pulse and guitar are recorded with you; earphones give the cleanest take.</p>
+    <p class="small">Shuffle keeps the style. You get a 2-bar count-in, then the band comes in and recording starts by itself. The backing is recorded with you; earphones give the cleanest take.</p>
     <button id="prClose" class="btn block subtle">Close</button>
   </dialog>
 

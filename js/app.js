@@ -4,9 +4,10 @@ import { makeZip, readZip } from './zip.js';
 import { ANALYSIS_VERSION, SWARA, saMidiFor, sargamString } from './analyze.js';
 import { analyseAudio, analysisStats } from './analysis-client.js';
 import { midiToFreq } from './pitch.js';
-import { PromptPlayer, randomPrompt, rerollPart, describePrompt } from './prompt.js';
+import { randomPrompt, rerollPart, describePrompt, normalizePrompt, buildPlan, partsOf } from './prompt.js';
+import { PromptPlayer } from './prompt-player.js';
 
-const APP_VERSION = '1.3.1';
+const APP_VERSION = '1.4.0';
 const MIN_DURATION = 1.0; // seconds; shorter clips are discarded
 const MIN_BYTES = 800;
 
@@ -23,10 +24,12 @@ const els = {
   micBody: $('#micBody'), recLabel: $('#recLabel'), stopLabel: $('#stopLabel'), installHint: $('#installHint'), hintClose: $('#hintClose'),
   updateBar: $('#updateBar'), updateBtn: $('#updateBtn'),
   promptBtn: $('#promptBtn'), promptDlg: $('#promptDlg'), prTempo: $('#prTempo'), prTempoV: $('#prTempoV'),
+  prStyle: $('#prStyle'), prStyleV: $('#prStyleV'), prForm: $('#prForm'), prFormV: $('#prFormV'),
   prKey: $('#prKey'), prKeyV: $('#prKeyV'), prChords: $('#prChords'), prChordsV: $('#prChordsV'),
   prFeel: $('#prFeel'), prFeelV: $('#prFeelV'), prShuffle: $('#prShuffle'), prListen: $('#prListen'),
   prRecord: $('#prRecord'), prClose: $('#prClose'), recPrompt: $('#recPrompt'), rpInfo: $('#rpInfo'),
-  rpChords: $('#rpChords'), rpBeats: $('#rpBeats'), rpPulse: $('#rpPulse'), rpGuitar: $('#rpGuitar'),
+  rpGrid: $('#rpGrid'), rpSection: $('#rpSection'), rpBeats: $('#rpBeats'),
+  rpClick: $('#rpClick'), rpDrums: $('#rpDrums'), rpBass: $('#rpBass'), rpChords: $('#rpChords'),
 };
 
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -270,9 +273,14 @@ function renderPromptDetails(box, t) {
     r.append(el('span', 'd-label', label), el('span', 'd-value', value));
     box.append(r);
   };
-  row('Prompt', `${t.bpm} BPM · ${pr.meterName} · ${pr.styleName}`);
+  row('Prompt', `${pr.genreName || 'Acoustic'} · ${t.bpm} BPM · ${pr.meterName} · ${pr.feelName || pr.styleName}`);
   row('Sa', `${pr.keyName} · ${pr.scale}${pr.western ? ` (${pr.western})` : ''}`);
-  row('Chords', `${pr.chords.map((c) => c.name).join(' – ')}  (${pr.chords.map((c) => c.roman).join(' ')})`);
+  if (pr.sections) {
+    for (const sec of pr.sections) row(sec.name === 'Loop' ? 'Chords' : `Part ${sec.name}`, sec.bars.join(' '));
+    if (pr.newChord) row('New chord', `${pr.newChord.name} (${pr.newChord.roman}) in part B`);
+  } else {
+    row('Chords', `${pr.chords.map((c) => c.name).join(' – ')}  (${pr.chords.map((c) => c.roman).join(' ')})`);
+  }
   box.append(el('button', 'btn reuse-prompt', 'Use this prompt again'));
 }
 
@@ -883,12 +891,20 @@ function meterLoop() {
 
 let shownPos = '';
 function showPromptPosition(pos) {
-  const key = `${pos.chordIdx}:${pos.beatInBar}`;
+  const key = `${pos.barIdx}:${pos.beatInBar}:${pos.countIn}`;
   if (key === shownPos) return;
   shownPos = key;
-  [...els.rpChords.children].forEach((c, i) => c.classList.toggle('now', i === pos.chordIdx));
+  els.rpGrid.querySelectorAll('.rp-bar').forEach((c) => c.classList.toggle('now', Number(c.dataset.i) === pos.barIdx));
   [...els.rpBeats.children].forEach((b, i) => b.classList.toggle('on', i === pos.beatInBar));
+  if (pos.countIn) els.rpSection.textContent = 'Get ready: the groove starts at bar 1';
+  else if (pos.section) {
+    els.rpSection.textContent = pos.section === 'Loop'
+      ? `Bar ${pos.barInSection + 1} of ${pos.sectionLen}`
+      : `Part ${pos.section} · bar ${pos.barInSection + 1} of ${pos.sectionLen}${pos.section === 'B' ? ' · moves more' : ''}`;
+  }
 }
+
+const PART_CHIPS = () => [['click', els.rpClick], ['drums', els.rpDrums], ['bass', els.rpBass], ['chords', els.rpChords]];
 
 function resetRecUI(prompt = null) {
   els.recTime.textContent = '0:00';
@@ -898,39 +914,50 @@ function resetRecUI(prompt = null) {
   els.recPrompt.hidden = !prompt;
   shownPos = '';
   if (!prompt) return;
-  const d = describePrompt(prompt);
-  els.rpInfo.textContent = `${d.bpm} BPM · ${d.meterName} · Sa ${d.keyName} · ${d.styleName}`;
-  els.rpChords.replaceChildren(...d.chords.map((c) => {
-    const chip = el('div', 'rp-chord', c.name);
-    chip.append(el('small', '', c.roman + (c.bars > 1 ? ` ×${c.bars}` : '')));
-    return chip;
+  const plan = buildPlan(prompt);
+  const d = plan.d;
+  els.rpInfo.textContent = `${d.genreName} · ${d.bpm} BPM · ${d.meterName} · Sa ${d.keyName} · ${d.feelName}`;
+  els.rpSection.textContent = '';
+  // One chip per bar, a row per section, so you can see where the changes come.
+  let i = 0;
+  els.rpGrid.replaceChildren(...d.sections.map((sec) => {
+    const row = el('div', 'rp-row');
+    if (d.sections.length > 1) row.append(el('span', 'rp-label', sec.name));
+    for (const c of sec.bars) {
+      const chip = el('span', `rp-bar${c.isNew ? ' new' : ''}`, c.name);
+      chip.dataset.i = i++;
+      row.append(chip);
+    }
+    return row;
   }));
-  els.rpBeats.replaceChildren(...Array.from({ length: d.meter }, (_, i) => el('span', i ? 'rp-beat' : 'rp-beat one')));
-  for (const [b, label] of [[els.rpPulse, 'Pulse'], [els.rpGuitar, 'Guitar']]) {
-    b.setAttribute('aria-pressed', 'true');
-    b.textContent = `${label} on`;
+  els.rpBeats.replaceChildren(...Array.from({ length: d.meter }, (_, k) => el('span', k ? 'rp-beat' : 'rp-beat one')));
+  const parts = { ...partsOf(plan), click: true };
+  for (const [part, btn] of PART_CHIPS()) {
+    btn.hidden = !parts[part];
+    btn.setAttribute('aria-pressed', String(part === 'click' ? plan.click : true));
   }
 }
 
-function toggleChip(btn, label, apply) {
+function toggleChip(btn, apply) {
   const on = btn.getAttribute('aria-pressed') !== 'true';
   btn.setAttribute('aria-pressed', String(on));
-  btn.textContent = `${label} ${on ? 'on' : 'off'}`;
   apply(on);
 }
-els.rpPulse.addEventListener('click', () => toggleChip(els.rpPulse, 'Pulse', (on) => state.player?.setPulseOn(on)));
-els.rpGuitar.addEventListener('click', () => toggleChip(els.rpGuitar, 'Guitar', (on) => state.player?.setGuitarOn(on)));
+for (const [part, btn] of PART_CHIPS()) btn.addEventListener('click', () => toggleChip(btn, (on) => state.player?.setOn(part, on)));
 
-// ---------- Prompt: a random pulse + guitar progression to compose over ----------
+// ---------- Prompt: a random groove to compose over ----------
 const promptState = { prompt: null, ctx: null, player: null };
 
 function promptFields(params) {
-  const d = describePrompt(params);
+  const p = normalizePrompt(params);
+  const d = describePrompt(p);
   return {
     prompt: {
-      params, meterName: d.meterName, styleName: d.styleName, progressionName: d.progressionName,
-      keyName: d.keyName, scale: d.scale, western: d.western,
-      chords: d.chords.map((c) => ({ name: c.name, roman: c.roman, bars: c.bars })),
+      params: p, genreName: d.genreName, feelName: d.feelName, styleName: d.feelName, formName: d.formName,
+      meterName: d.meterName, progressionName: d.progressionName, keyName: d.keyName, scale: d.scale, western: d.western,
+      sections: d.sections.map((sec) => ({ name: sec.name, bars: sec.bars.map((c) => c.name) })),
+      chords: d.chords.map((c) => ({ name: c.name, roman: c.roman })),
+      newChord: d.newChord ? { name: d.newChord.name, roman: d.newChord.roman } : null,
     },
     bpm: d.bpm,
     bpmSource: 'prompt',
@@ -955,13 +982,38 @@ function setPromptLine(target, main, sub) {
   if (sub) target.append(el('small', '', sub));
 }
 
+// "D D A A" → "D ×2 – A ×2"
+function compressBars(bars) {
+  const out = [];
+  for (const c of bars) {
+    const last = out[out.length - 1];
+    if (last && last.name === c.name) last.n++;
+    else out.push({ name: c.name, n: 1 });
+  }
+  return out.map((x) => (x.n > 1 ? `${x.name} ×${x.n}` : x.name)).join(' – ');
+}
+
 function renderPromptCard() {
   const d = describePrompt(promptState.prompt);
+  setPromptLine(els.prStyleV, d.genreName, d.genreParts);
   setPromptLine(els.prTempoV, `${d.bpm} BPM`);
   setPromptLine(els.prKeyV, d.keyName, d.scale === 'any' ? 'drone, no fixed scale' : `${d.scale}${d.western ? ` · ${d.western}` : ''}`);
-  setPromptLine(els.prChordsV, d.chords.map((c) => c.name + (c.bars > 1 ? ` ×${c.bars}` : '')).join(' – '),
-    `${d.progressionName} · ${d.chords.map((c) => c.roman).join(' ')}`);
-  setPromptLine(els.prFeelV, `${d.meterName} · ${d.styleName}`);
+  if (d.form === 'ab') {
+    const [A, B] = d.sections;
+    setPromptLine(els.prChordsV, `A: ${compressBars(A.bars)}`,
+      `B: ${B.bars.map((c) => c.name).join(' ')} · new: ${d.newChord.name} (${d.newChord.roman}) · ${d.progressionName}`);
+  } else {
+    setPromptLine(els.prChordsV, compressBars(d.sections[0].bars), `${d.progressionName} · ${d.chords.map((c) => c.roman).join(' ')}`);
+  }
+  setPromptLine(els.prFeelV, `${d.meterName} · ${d.feelName}`);
+  setPromptLine(els.prFormV, d.formName, d.form === 'ab' ? 'A holds each chord 2 bars; B moves every bar and adds one chord' : 'the progression on repeat');
+}
+
+let lastGenre = null;
+try { lastGenre = localStorage.getItem('promptGenre'); } catch {}
+function rememberGenre(g) {
+  lastGenre = g;
+  try { localStorage.setItem('promptGenre', g); } catch {}
 }
 
 function stopPreview() {
@@ -982,6 +1034,7 @@ function startPreview() {
 
 function changePrompt(next) {
   promptState.prompt = next;
+  rememberGenre(next.genre);
   renderPromptCard();
   if (promptState.player) { // keep listening, now to the new prompt
     promptState.player.stop();
@@ -992,7 +1045,8 @@ function changePrompt(next) {
 function openPrompt(params = null) {
   if (state.mode !== 'idle') return;
   stopPlayback();
-  promptState.prompt = params ? { ...params } : randomPrompt(Math.random, promptState.prompt);
+  // A new prompt keeps the style you used last; "Use this prompt again" restores one exactly.
+  promptState.prompt = params ? normalizePrompt(params) : randomPrompt(Math.random, promptState.prompt, { genre: lastGenre });
   renderPromptCard();
   els.prListen.textContent = 'Listen';
   openDialog(els.promptDlg);
@@ -1009,7 +1063,10 @@ els.prTempo.addEventListener('click', () => changePrompt(rerollPart(promptState.
 els.prKey.addEventListener('click', () => changePrompt(rerollPart(promptState.prompt, 'key')));
 els.prChords.addEventListener('click', () => changePrompt(rerollPart(promptState.prompt, 'chords')));
 els.prFeel.addEventListener('click', () => changePrompt(rerollPart(promptState.prompt, 'feel')));
-els.prShuffle.addEventListener('click', () => changePrompt(randomPrompt(Math.random, promptState.prompt)));
+els.prStyle.addEventListener('click', () => changePrompt(rerollPart(promptState.prompt, 'style')));
+els.prForm.addEventListener('click', () => changePrompt(rerollPart(promptState.prompt, 'form')));
+// Shuffle keeps the style; tap Style to change it.
+els.prShuffle.addEventListener('click', () => changePrompt(randomPrompt(Math.random, promptState.prompt, { genre: promptState.prompt.genre })));
 els.prListen.addEventListener('click', () => {
   if (promptState.player) stopPreview();
   else startPreview();

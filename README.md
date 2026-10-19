@@ -12,13 +12,27 @@ Plain HTML/CSS/JS, no build step, no backend. Hosted on GitHub Pages, installed 
 2. Sing, hum or whistle. Useful habit: **clap or tap the beat** and **sing your Sa** at the start. It's all in the recording, so tempo and key can be worked out from the audio later.
 3. **Stop & save**. The tune shows at the top of the list, and a moment later it's **analysed automatically** in the background (on the phone, offline): BPM, Sa and scale appear on the row.
 
-**Prompt: compose over a random groove.** Tap **Prompt** under Record for a random starting point:
-- **Tempo** (70–126 BPM), **Sa** (any of the 12 keys), **chords** (14 progressions: pop I–V–vi–IV, folk, ii–V–I, Khamaj/Mixolydian, Asavari "epic minor", Andalusian, Kafi/Dorian vamp, Bhairavi colour, a Sa–Pa drone and more) and **feel** (4/4 or 3/4; let-it-ring, steady strum, folk strum, waltz or fingerpicked).
-- Tap any line to change just that part, or **Shuffle all**. **Listen** previews it; changes apply while it plays.
-- **Record over it**: a **2-bar count-in** of clicks (beat 1 accented, a big 1-2-3-4 on screen), then the guitar comes in on chord 1 and **recording starts by itself** on that downbeat. **Cancel** during the count-in saves nothing. While recording, the screen shows the current chord and beat, and Pulse/Guitar can be muted (the mute is recorded too).
-- The pulse and guitar are **in the recording**, so a shared clip has its backing. Earphones keep the mic clean; on the speaker, echo cancellation keeps most of the backing out of the mic. The backing is delayed by the measured audio latency so it lines up with your voice.
-- The tune is saved with the prompt's BPM, Sa, scale and chords (no analysis needed). Its details have **Use this prompt again** to continue the idea later.
-- The guitar is synthesized on the phone (Karplus–Strong plucked strings in real chord shapes), so it works offline.
+**Prompt: compose over a random groove.** Tap **Prompt** under Record. The card has six lines; tap one to change just that part:
+- **Style** steps through 5 bands, all synthesized on the phone so they work offline:
+  - **Acoustic:** guitar.
+  - **Pop:** guitar, bass, drums.
+  - **Rock:** overdriven power chords, bass, drums.
+  - **Synth pop:** pad, arpeggio, synth bass, drum machine.
+  - **Ballad:** guitar, pad, long bass notes.
+- **Tempo** (a random BPM suited to the style), **Sa** (any of 12 keys), **Chords** (14 progressions: pop I–V–vi–IV, 50s, folk, ii–V–I, Khamaj/Mixolydian, Asavari "epic minor", Andalusian, Kafi/Dorian vamp, Bhairavi colour, a Sa–Pa drone and more).
+- **Feel** steps through the style's groove patterns, 23 in all:
+  - **Acoustic:** let it ring, steady strum, folk strum, syncopated strum, island offbeat with shaker, fingerpicked, Travis picking. In 3/4: waltz, strum, folk strum, fingerpicked.
+  - **Pop:** syncopated, driving 8ths, half-time, offbeat skank.
+  - **Rock:** palm-muted 8ths, big open chords, gallop.
+  - **Synth pop:** 16th arpeggio, four on the floor, dreamy.
+  - **Ballad:** picked, ring, waltz.
+- **Form**:
+  - **16 bars: A + B** (default). **A** is sparse: each chord rings for 2 bars. **B** moves a chord per bar and brings in **one new colour chord** (ii, iii, iv, ♭VI, ♭VII…, outlined on screen), then turns around back to the top. The drums add a crash at each section, a fill at the end of each section, and busier hats in B.
+  - **Loop:** the old 4-bar loop.
+- **Shuffle** keeps your style and changes everything else. A new prompt starts in the style you used last. **Listen** previews it; changes apply while it plays.
+- **Record over it**: a **2-bar count-in** of clicks (beat 1 accented, a big 1-2-3-4 on screen), then the band comes in on bar 1 and **recording starts by itself**. **Cancel** during the count-in saves nothing. While recording you see all 16 bars as a chord map with the current bar lit, "Part A · bar 3 of 8", and toggles for **Click / Drums / Bass / Chords** (the click starts off when there are drums; mutes are recorded too).
+- The backing is **in the recording**, so a shared clip has its band. Earphones keep the mic clean. The backing is delayed by the measured audio latency so it lines up with your voice.
+- The tune is saved with its style, feel, BPM, Sa, scale, both parts' chords and the new chord. **Use this prompt again** in its details brings the same groove back. Prompts saved by v1.3 replay as the acoustic loop they were.
 
 **Analysis** (tap the grey line under a tune's name to open it):
 - **Tempo** from your clicks, with the range it moved within. No clicks means no tempo.
@@ -49,14 +63,17 @@ js/pitch.js           YIN pitch detection + note naming
 js/analyze.js         melody analysis shared by app and CLI: clicks → tempo/meter; pitch → tuning, Sa, scale, sargam
 js/analysis-client.js decodes a clip (Web Audio) and runs the analysis in the worker, queue-free API
 js/analyze-worker.js  Web Worker wrapper around analyze.js
-js/prompt.js          Prompt mode: random groove, progressions, guitar voicings, plucked-string synth, scheduler
+js/prompt.js          Prompt mode, pure: genres, feels, progressions, 16-bar A/B form, voicings, per-beat arrangement
+js/prompt-player.js   Prompt scheduler: count-in, lookahead timing, chord/bar position for the screen
+js/instruments.js     synthesized band: clean/overdriven guitar, finger/synth bass, drums, pad, arpeggio, click
+tools/serve.py        local dev server with caching disabled (npm run serve)
 js/db.js              IndexedDB (tunes, audio, in-progress chunks)
 js/zip.js             zip writer/reader for backups
 icons/                app icons (regenerate with tools/make_icons.py, needs Pillow)
 tools/analyze-tune.mjs  same analysis from the command line: node tools/analyze-tune.mjs file.m4a (macOS afconvert)
 tests/unit.test.mjs   node tests for pitch + zip  (npm test)
 tests/analyze.test.mjs analysis tests: synthetic takes + your confirmed takes if samples/ has the backup
-tests/prompt.test.mjs  prompt tests: valid random prompts, rerolls, chord spelling, voicings, string pitch
+tests/prompt.test.mjs  prompt tests: form rules, genres/feels, arrangement per style, count-in timing, tuning, old prompts
 .nojekyll             tells GitHub Pages to serve files as-is
 ```
 
@@ -124,6 +141,20 @@ gh repo create tune-notebook --public --source=. --push
 
 ### What was tested
 
+**v1.4.0 (2026-10-18), styles, sounds and 16-bar form:** `npm test` passes 28/28:
+- Across all 14 progressions × 8 colour choices: A changes chord at most 4 times, B moves more and contains the marked new chord, and bar 16 is the turnaround.
+- Every feel's patterns exist and fit its meter. In Rock: power chords, bass on the roots, a crash at bars 1 and 9, 4-hit snare fills in bars 8 and 16, and busier hats in B. In Synth pop: pads cover all 16 bars and the arpeggio plays 16 notes a bar.
+- Plucked strings from E1 to E5 are in tune within 5 cents for 200 random plucks.
+- Count-in: only 8 clicks, then kick + bass + guitar + crash together on bar 1.
+- v1.3 prompts replay unchanged.
+
+In the browser (no-cache server, fresh origin):
+- The Style line cycles through all 5 styles, and the preview plays A1–A8 then moves into B on time with no errors.
+- Rendering each style offline, part by part, set the mix: drums, bass and chords within about 5 dB of each other, the styles within about 5 dB overall, and peaks ≤ 0.6.
+- Record over it showed the 16-bar map with the new chord outlined. Muting Drums mid-take worked, and the tune saved its style/feel/form/chords.
+
+Not tried on an iPhone yet: how the band sounds on the phone speaker, and CPU headroom for the busier styles.
+
 **v1.3.1 (2026-10-18), count-in:** `npm test` 23/23. Using a stand-in audio engine: a 2-bar count-in is exactly 8 clicks in 4/4 (6 in 3/4), accented on beat 1, with no guitar until the downbeat. The first strum and chord 1 land on the downbeat, and the preview (no count-in) starts at once. In the browser: Listen → Record over it showed "Count-in 1/2" with a big beat number and Cancel, and the recorder only started after the count-in. In the decoded take, sound starts at 0.045 s and the first chord's root is present in the first second. Cancel and an audio interruption during the count-in both save nothing, and plain Record is still instant.
 
 **v1.3.0 (2026-10-18), Prompt mode:** `npm test` passes 20/20 (500 random prompts valid, rerolls change only one part, D pop = D A Bm G, all 36 voicings have the root in the bass, the right third and a guitar range, plucked strings within 8 cents from E2 to E5). In the browser: the preview beat lands every 0.732 s at 82 BPM, and changing chords mid-preview keeps it playing. Recording over it hands the running groove to the recorder without a restart, shows the live chord and beat, and saves BPM/Sa/chords. Decoding the take and running the app's analyser on it gave 82.2 BPM with 4/4 accents and the guitar clearly present, so the backing is really in the file. Mic denied during a preview stops the groove. Plain Record is unchanged (raw mic, no backing). Not yet tried on an iPhone: the speaker/earphone balance and how the latency compensation feels with Bluetooth.
@@ -181,5 +212,7 @@ To try it on your iPhone before deploying, the page must be served over HTTPS (t
 > Then: "can you build an option Prompt, that plays a pulse at any random reasonable tempo and a guitar chord or progression? and lets me compose over it?"
 >
 > Then: "from prompt listen when i click record over it, there should be a 2 bar count in and automatically starting to record."
+>
+> Then: "that is awesome, can you add more variety in sounds, may be a bass, maybe styles, like synth pop, rock, pop, etc, and more strum styles? or may be you can have two eight bar pattersn, the first is sparse in change, the second has a good introduction of one more chord etc, so that the 16 bars are a nice loop to compose with"
 >
 > Earlier: "Setting tempo and Sa makes the capturing of the tune interrupting flow. How about just capturing it as is, I will probably click the tempo to start with and sing the sa note, as part of recording, later we can figure out a way to recover the tempo and time signature and key signature and scale from melody itself"

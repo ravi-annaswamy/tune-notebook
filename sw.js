@@ -1,5 +1,5 @@
 // Offline-first service worker. Bump VERSION on every deploy so phones pick up the update.
-const VERSION = 'v1.3.1';
+const VERSION = 'v1.4.0';
 const CACHE = `tune-notebook-${VERSION}`;
 const ASSETS = [
   './',
@@ -15,6 +15,8 @@ const ASSETS = [
   './js/analysis-client.js',
   './js/analyze-worker.js',
   './js/prompt.js',
+  './js/prompt-player.js',
+  './js/instruments.js',
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/icon-maskable-512.png',

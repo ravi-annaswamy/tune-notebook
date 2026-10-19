@@ -107,6 +107,17 @@
 - Pushed cbdf519 (+ the v1.3.0 log commit). Pages build finished in about 20 s. The live sw.js is v1.3.1 and the live prompt.js has the count-in.
 - Live checks: a browser on v1.3.0 showed the update bar; tapping Update moved it to v1.3.1 (only the v1.3.1 cache left). A live prompt at 72 BPM counted in "Count-in 1/2" 1-2-3-4 with the recorder not started, and Cancel saved nothing.
 
+## 2026-10-18 20:19 · v1.4.0: styles, band sounds, 16-bar A/B form
+- Split Prompt into js/prompt.js (pure: GENRES ×5, FEELS ×23, GUITAR/BASS/DRUMS/ARP patterns, buildForm, buildPlan, eventsForBeat), js/instruments.js (Web Audio band) and js/prompt-player.js (scheduler + count-in).
+- Form 'ab': A = each chord 2 bars (8 bars, ≤4 changes); B = a chord per bar, a colour chord from COLOURS[mode] (not already used, not the turn) at bar 7, the progression's turn at bar 8. 'loop' = old behaviour. v1.3 prompts are normalized to acoustic + loop.
+- Instruments: clean KS guitar (body EQ), overdriven KS (tanh shaper + cab filters, power voicings), KS finger bass / saw+sub synth bass, drums from sine sweeps and filtered noise (kick, snare, clap, hats, open hat, shaker, crash), detuned-saw pad, square arpeggio. Separate buses: click (off by default with drums), count (always on), drums, bass, chords.
+- Arrangement: damping on chord changes, muted strums for chops/palm mutes, bass approach notes, pads sustained over chord runs, a crash at each section start, a snare fill on the last beat of each section, hats doubled in B.
+- Card: Style (cycles), Tempo, Sa, Chords (A compressed + B with the new chord), Feel (cycles), Form (toggles). Shuffle keeps the style; the last style is remembered in localStorage. Recording: 16-bar chord grid with the new chord outlined, section/bar label, Click/Drums/Bass/Chords toggles.
+- Mix set by offline-rendering each part alone per style. Drums bus 0.45, synth bass peak 0.13, Pop chords ×1.6, Acoustic ×2, Ballad ×1.25. Result: styles within about 5 dB, peaks ≤ 0.6.
+- **Test fix:** the YIN-based pluck pitch test was flaky (quiet plucks fell under the RMS gate; strong 2nd harmonics gave octave errors). Replaced it with an autocorrelation period measurement over 200 random plucks (≤5 cents).
+- **Dev gotcha found:** python's http.server sends no cache headers, so the browser reused a stale prompt.js after edits and gave a false result. Added tools/serve.py (Cache-Control: no-store), pointed launch.json/npm serve at it, noted in CLAUDE.md, and re-verified everything on a fresh origin.
+- Tests 28/28. v1.4.0. Committed locally, not pushed.
+
 ---
 ### User prompts
 1. (Build brief: see bottom of README.md for the full text.) Build the "Tune Notebook" PWA: record with tap tempo, Sa detection and a tanpura drone mixed in; IndexedDB storage; share/export; offline; deploy and iPhone install guide; test mic denied / phone-call interruption / very short clips.
@@ -127,3 +138,4 @@
 16. "Yes, push v1.3.0 to GitHub so the live app updates."
 17. "from prompt listen when i click record over it, there should be a 2 bar count in and automatically starting to record."
 18. "Yes, push v1.3.1 to GitHub so the live app updates."
+19. "that is awesome, can you add more variety in sounds, may be a bass, maybe styles, like synth pop, rock, pop, etc, and more strum styles? or may be you can have two eight bar pattersn, the first is sparse in change, the second has a good introduction of one more chord etc, so that the 16 bars are a nice loop to compose with"
