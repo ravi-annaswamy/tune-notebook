@@ -236,6 +236,46 @@ svg { width: 24px; height: 24px; fill: currentColor; }
   transition: transform 60ms linear;
 }
 
+/* Prompt */
+.prompt-btn {
+  width: 100%; margin-top: 10px; min-height: 56px;
+  border-radius: 18px; border: 1px solid var(--line);
+  background: var(--surface); font-size: 17px; font-weight: 600;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+}
+.prompt-btn svg { color: var(--sa); }
+.pr-line {
+  width: 100%; min-height: 54px; margin: 6px 0; padding: 8px 14px;
+  border-radius: 14px; border: 1px solid var(--line); background: var(--surface-2);
+  display: grid; grid-template-columns: 64px 1fr; align-items: center; gap: 8px; text-align: left;
+}
+.pr-label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
+.pr-value { font-size: 17px; font-weight: 600; }
+.pr-value small { display: block; font-size: 13px; font-weight: 400; color: var(--muted); }
+.btn.big { min-height: 64px; font-size: 19px; }
+.rec-prompt { width: 100%; text-align: center; }
+.rp-info { margin: 0 0 10px; color: var(--muted); font-size: 16px; }
+.rp-chords { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-bottom: 14px; }
+.rp-chord {
+  min-width: 56px; padding: 8px 10px; border-radius: 12px;
+  background: var(--surface-2); font-size: 22px; font-weight: 700; color: var(--muted);
+}
+.rp-chord small { display: block; font-size: 11px; font-weight: 500; }
+.rp-chord.now { background: var(--sa); color: #111; }
+.rp-beats { display: flex; justify-content: center; gap: 14px; margin-bottom: 16px; }
+.rp-beat { width: 16px; height: 16px; border-radius: 50%; background: var(--surface-2); }
+.rp-beat.one { width: 20px; height: 20px; }
+.rp-beat.on { background: var(--tempo); }
+.mix-row { display: flex; gap: 10px; }
+.chip {
+  flex: 1; min-height: 50px;
+  border-radius: 16px; border: 1px solid var(--line);
+  background: var(--surface); font-size: 16px; font-weight: 600;
+}
+.chip[aria-pressed="false"] { color: var(--muted); text-decoration: line-through; }
+.rec-panel.with-prompt .rec-time { font-size: 64px; }
+.rec-panel.with-prompt .rec-center { gap: 18px; }
+
 .stop-btn {
   min-height: 160px;
   border: 0; border-radius: 32px;

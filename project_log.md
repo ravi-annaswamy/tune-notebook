@@ -81,6 +81,16 @@
 - Tested locally: v1.2.1 running, sw.js temporarily set to v1.2.1-test → the bar appeared and was still visible after 14 s. A real tap reloaded into the new version and only the new cache remained. sw.js restored to v1.2.1.
 - Note: phones on v1.2.0 still see the old toast for this one update, since the bar code ships with it. From v1.2.1 on, the bar is used.
 
+## 2026-10-18 18:21 · v1.3.0: Prompt mode
+- New js/prompt.js: random prompt = {bpm 70–126, meter 4/4 (70%) or 3/4, keyPc, progression (14), style (4 for 4/4, 3 for 3/4)}. describePrompt derives chord names and romans; rerollPart changes one field; shuffle never repeats a progression.
+- Guitar: real voicings (E-shape barre for roots E–G#, A-shape for A–D#, power chords), Karplus–Strong with an allpass fractional delay (pitch within 8 cents), lowpass + body peak. Strums are staggered 12 ms down / 8 ms up; strings are damped when re-plucked and all strings at chord changes. Pulse: sine blip with an accented beat 1.
+- PromptPlayer: 25 ms lookahead scheduler, UI position queue, pulse/guitar mute buses.
+- audio.js Engine({ctx, backing}): reuses the preview's AudioContext so the groove doesn't restart. Mic + backing → MediaStreamDestination → MediaRecorder (falls back to mic only if constructing or starting fails). echoCancellation is on only with a backing. The backing's copy is delayed by input + output latency.
+- app.js: Prompt card (tap a line to reroll it, Shuffle all, Listen, Record over it), handover of the preview to the recording, live chord chips + beat dots, Pulse/Guitar chips. Prompt takes store {prompt, bpm/bpmSource 'prompt', sa.source 'prompt'}, show chords in the row, details with "Use this prompt again", and are never analysed. Sessions carry the prompt so recovered takes keep it.
+- **Bug found in testing + fixed:** stopRecording queued analysis for every new take, including prompt takes. Now it goes through needsAnalysis().
+- Tests 20/20 (new tests/prompt.test.mjs). Browser: preview timing exact, reroll mid-preview, record-over handover, the mixed take analyses back to 82.2 BPM / 4/4 with the guitar present, mic denied stops the groove, plain Record unchanged.
+- sw.js v1.3.0 precaches js/prompt.js. Committed locally, not pushed.
+
 ---
 ### User prompts
 1. (Build brief: see bottom of README.md for the full text.) Build the "Tune Notebook" PWA: record with tap tempo, Sa detection and a tanpura drone mixed in; IndexedDB storage; share/export; offline; deploy and iPhone install guide; test mic denied / phone-call interruption / very short clips.
@@ -97,3 +107,4 @@
 12. "Do this task here: Add in-app Analyse button for tempo and Sa"
 13. "Yes, push v1.2.0 to GitHub so the live app updates."
 14. "Yes, keep the update bar visible until I tap it, and push that."
+15. "can you build an option Prompt, that plays a pulse at any random reasonable tempo and a guitar chord or progression? and lets me compose over it?"

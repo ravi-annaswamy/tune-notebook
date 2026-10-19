@@ -4,8 +4,9 @@ import { makeZip, readZip } from './zip.js';
 import { ANALYSIS_VERSION, SWARA, saMidiFor, sargamString } from './analyze.js';
 import { analyseAudio, analysisStats } from './analysis-client.js';
 import { midiToFreq } from './pitch.js';
+import { PromptPlayer, randomPrompt, rerollPart, describePrompt } from './prompt.js';
 
-const APP_VERSION = '1.2.1';
+const APP_VERSION = '1.3.0';
 const MIN_DURATION = 1.0; // seconds; shorter clips are discarded
 const MIN_BYTES = 800;
 
@@ -21,6 +22,11 @@ const els = {
   seqSkipBtn: $('#seqSkipBtn'), seqDoneBtn: $('#seqDoneBtn'), micDlg: $('#micDlg'), micTitle: $('#micTitle'),
   micBody: $('#micBody'), installHint: $('#installHint'), hintClose: $('#hintClose'),
   updateBar: $('#updateBar'), updateBtn: $('#updateBtn'),
+  promptBtn: $('#promptBtn'), promptDlg: $('#promptDlg'), prTempo: $('#prTempo'), prTempoV: $('#prTempoV'),
+  prKey: $('#prKey'), prKeyV: $('#prKeyV'), prChords: $('#prChords'), prChordsV: $('#prChordsV'),
+  prFeel: $('#prFeel'), prFeelV: $('#prFeelV'), prShuffle: $('#prShuffle'), prListen: $('#prListen'),
+  prRecord: $('#prRecord'), prClose: $('#prClose'), recPrompt: $('#recPrompt'), rpInfo: $('#rpInfo'),
+  rpChords: $('#rpChords'), rpBeats: $('#rpBeats'), rpPulse: $('#rpPulse'), rpGuitar: $('#rpGuitar'),
 };
 
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -147,7 +153,7 @@ function fillRow(li, t) {
   li.querySelector('.name').textContent = t.name;
   li.querySelector('.m-bpm').textContent = t.bpm ? `${t.bpm} BPM` : '';
   li.querySelector('.m-sa').textContent = t.sa ? `Sa ${t.sa.name}` : '';
-  li.querySelector('.m-scale').textContent = t.sa?.scale || '';
+  li.querySelector('.m-scale').textContent = t.prompt ? t.prompt.chords.map((c) => c.name).join('–') : t.sa?.scale || '';
   li.querySelector('.m-dur').textContent = fmtDur(t.duration);
   li.querySelector('.m-status').textContent = analysisStatus(t);
   li.querySelector('.play').setAttribute('aria-label', `Play ${t.name}`);
@@ -172,7 +178,7 @@ const analysisQueue = [];
 let pumping = false;
 let idleWaiters = [];
 
-const needsAnalysis = (t) => !t.analysis || (t.analysis.version || 0) < ANALYSIS_VERSION;
+const needsAnalysis = (t) => !t.prompt && (!t.analysis || (t.analysis.version || 0) < ANALYSIS_VERSION);
 const whenIdle = () => (state.mode === 'idle' ? Promise.resolve() : new Promise((r) => idleWaiters.push(r)));
 function notifyIdle() {
   const w = idleWaiters;
@@ -257,8 +263,22 @@ function el(tag, cls, text) {
   return e;
 }
 
+function renderPromptDetails(box, t) {
+  const pr = t.prompt;
+  const row = (label, value) => {
+    const r = el('div', 'd-row');
+    r.append(el('span', 'd-label', label), el('span', 'd-value', value));
+    box.append(r);
+  };
+  row('Prompt', `${t.bpm} BPM · ${pr.meterName} · ${pr.styleName}`);
+  row('Sa', `${pr.keyName} · ${pr.scale}${pr.western ? ` (${pr.western})` : ''}`);
+  row('Chords', `${pr.chords.map((c) => c.name).join(' – ')}  (${pr.chords.map((c) => c.roman).join(' ')})`);
+  box.append(el('button', 'btn reuse-prompt', 'Use this prompt again'));
+}
+
 function renderDetails(box, t) {
   box.replaceChildren();
+  if (t.prompt) { renderPromptDetails(box, t); return; }
   const a = t.analysis;
   const reBtn = el('button', 'btn reanalyse', analysing.has(t.id) ? 'Analysing…' : 'Analyse again');
   reBtn.disabled = analysing.has(t.id) || analysisQueue.includes(t.id);
@@ -565,6 +585,7 @@ els.list.addEventListener('click', (e) => {
     return;
   }
   if (e.target.closest('.reanalyse')) { queueAnalysis(t.id, { front: true }); return; }
+  if (e.target.closest('.reuse-prompt')) { openPrompt(t.prompt.params); return; }
   if (e.target.closest('.play')) togglePlay(t.id);
   else if (e.target.closest('.share')) shareTune(t);
   else if (e.target.closest('.del')) deleteTune(t);
@@ -637,7 +658,7 @@ function elapsedSec() {
 }
 
 function sessionMeta(s) {
-  return { id: s.id, name: s.name, startedAt: s.startedAt, bpm: s.bpm, sa: s.sa, mimeType: s.mimeType };
+  return { id: s.id, name: s.name, startedAt: s.startedAt, bpm: s.bpm, sa: s.sa, mimeType: s.mimeType, prompt: s.prompt || null };
 }
 function persistSessionMeta() {
   const s = state.session;
@@ -645,7 +666,8 @@ function persistSessionMeta() {
   s.writes = s.writes.then(() => db.putSession(sessionMeta(s))).catch(warn);
 }
 
-async function startRecording() {
+// opts.prompt: compose over a pulse + guitar. opts.ctx / opts.player: the running preview to keep.
+async function startRecording(opts = {}) {
   if (state.mode !== 'idle') return;
   if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
     showMicHelp('unsupported');
@@ -658,43 +680,54 @@ async function startRecording() {
 
   let engine;
   try {
-    engine = new Engine(); // synchronous, inside the tap
+    engine = new Engine(opts.prompt ? { ctx: opts.ctx, backing: true } : {}); // synchronous, inside the tap
   } catch (e) {
     return abortStart(() => toast(`Audio unavailable: ${e.message}`));
   }
   try {
     await engine.openMic();
   } catch (e) {
+    opts.player?.stop();
     engine.dispose();
     return abortStart(() => showMicHelp(e.name, e));
+  }
+
+  let player = null;
+  if (opts.prompt) {
+    player = opts.player || new PromptPlayer(engine.ctx, opts.prompt).connect(engine.ctx.destination);
+    if (engine.backingIn) player.connect(engine.backingIn);
+    player.start();
   }
 
   const startedAt = Date.now();
   const s = {
     id: newId(), startedAt, name: defaultName(new Date(startedAt)), bpm: null, sa: null,
-    mimeType: '', seq: 0, chunks: [], writes: Promise.resolve(),
+    mimeType: '', seq: 0, chunks: [], writes: Promise.resolve(), prompt: opts.prompt || null,
   };
   engine.addEventListener('chunk', (e) => onChunk(s, e.detail));
   engine.addEventListener('interrupted', (e) => stopRecording(e.detail));
   try {
     engine.startRecorder(pickMimeType());
   } catch (e) {
+    player?.stop();
     engine.dispose();
     return abortStart(() => toast(`Couldn't start recording: ${e.message}`));
   }
   s.mimeType = engine.mimeType;
   state.engine = engine;
   state.session = s;
+  state.player = player;
   state.mode = 'recording';
   persistSessionMeta();
 
-  resetRecUI();
+  resetRecUI(opts.prompt);
   els.recPanel.hidden = false;
   document.body.classList.add('rec-active');
   els.recordBtn.disabled = false;
   acquireWakeLock();
   meterLoop();
   requestPersist();
+  if (opts.prompt && !engine.mixed) toast("This browser can't record the backing: only your voice is saved");
 }
 
 function abortStart(report) {
@@ -725,6 +758,8 @@ async function stopRecording(reason) {
   cancelAnimationFrame(meterRaf);
 
   await engine.stopRecorder();
+  state.player?.stop();
+  state.player = null;
   engine.dispose();
   releaseWakeLock();
   setAudioSession('auto');
@@ -749,6 +784,7 @@ async function stopRecording(reason) {
   const meta = {
     id: s.id, name: s.name, createdAt: s.startedAt, bpm: s.bpm, sa: s.sa,
     duration: Math.round(duration * 10) / 10, mimeType: type, size: blob.size,
+    ...(s.prompt ? promptFields(s.prompt) : {}),
   };
   try {
     await db.saveTune(meta, await blob.arrayBuffer());
@@ -761,7 +797,7 @@ async function stopRecording(reason) {
   tunes.unshift(meta);
   render();
   rowFor(meta.id)?.classList.add('fresh');
-  queueAnalysis(meta.id, { front: true });
+  if (needsAnalysis(meta)) queueAnalysis(meta.id, { front: true });
   toast(`${prefix}Saved ${fmtDur(duration)}`);
 }
 
@@ -774,17 +810,157 @@ function meterLoop() {
   const dbfs = 20 * Math.log10(rms + 1e-6);
   els.meterFill.style.transform = `scaleX(${clamp((dbfs + 60) / 60, 0, 1)})`;
   els.recTime.textContent = fmtDur(elapsedSec());
+  if (state.player) showPromptPosition(state.player.position());
   meterRaf = requestAnimationFrame(meterLoop);
 }
 
-function resetRecUI() {
+let shownPos = '';
+function showPromptPosition(pos) {
+  const key = `${pos.chordIdx}:${pos.beatInBar}`;
+  if (key === shownPos) return;
+  shownPos = key;
+  [...els.rpChords.children].forEach((c, i) => c.classList.toggle('now', i === pos.chordIdx));
+  [...els.rpBeats.children].forEach((b, i) => b.classList.toggle('on', i === pos.beatInBar));
+}
+
+function resetRecUI(prompt = null) {
   els.recTime.textContent = '0:00';
   els.meterFill.style.transform = 'scaleX(0)';
   els.awakeInfo.textContent = '';
+  els.recPanel.classList.toggle('with-prompt', !!prompt);
+  els.recPrompt.hidden = !prompt;
+  shownPos = '';
+  if (!prompt) return;
+  const d = describePrompt(prompt);
+  els.rpInfo.textContent = `${d.bpm} BPM · ${d.meterName} · Sa ${d.keyName} · ${d.styleName}`;
+  els.rpChords.replaceChildren(...d.chords.map((c) => {
+    const chip = el('div', 'rp-chord', c.name);
+    chip.append(el('small', '', c.roman + (c.bars > 1 ? ` ×${c.bars}` : '')));
+    return chip;
+  }));
+  els.rpBeats.replaceChildren(...Array.from({ length: d.meter }, (_, i) => el('span', i ? 'rp-beat' : 'rp-beat one')));
+  for (const [b, label] of [[els.rpPulse, 'Pulse'], [els.rpGuitar, 'Guitar']]) {
+    b.setAttribute('aria-pressed', 'true');
+    b.textContent = `${label} on`;
+  }
 }
 
+function toggleChip(btn, label, apply) {
+  const on = btn.getAttribute('aria-pressed') !== 'true';
+  btn.setAttribute('aria-pressed', String(on));
+  btn.textContent = `${label} ${on ? 'on' : 'off'}`;
+  apply(on);
+}
+els.rpPulse.addEventListener('click', () => toggleChip(els.rpPulse, 'Pulse', (on) => state.player?.setPulseOn(on)));
+els.rpGuitar.addEventListener('click', () => toggleChip(els.rpGuitar, 'Guitar', (on) => state.player?.setGuitarOn(on)));
+
+// ---------- Prompt: a random pulse + guitar progression to compose over ----------
+const promptState = { prompt: null, ctx: null, player: null };
+
+function promptFields(params) {
+  const d = describePrompt(params);
+  return {
+    prompt: {
+      params, meterName: d.meterName, styleName: d.styleName, progressionName: d.progressionName,
+      keyName: d.keyName, scale: d.scale, western: d.western,
+      chords: d.chords.map((c) => ({ name: c.name, roman: c.roman, bars: c.bars })),
+    },
+    bpm: d.bpm,
+    bpmSource: 'prompt',
+    sa: { name: d.keyName, scale: d.scale, western: d.western, source: 'prompt' },
+  };
+}
+
+function newAudioContext() {
+  const AC = window.AudioContext || window.webkitAudioContext;
+  const ctx = new AC({ latencyHint: 'interactive' });
+  const b = ctx.createBuffer(1, 1, ctx.sampleRate); // unlock output on iOS inside the tap
+  const src = ctx.createBufferSource();
+  src.buffer = b;
+  src.connect(ctx.destination);
+  src.start(0);
+  ctx.resume?.().catch(() => {});
+  return ctx;
+}
+
+function setPromptLine(target, main, sub) {
+  target.replaceChildren(document.createTextNode(main));
+  if (sub) target.append(el('small', '', sub));
+}
+
+function renderPromptCard() {
+  const d = describePrompt(promptState.prompt);
+  setPromptLine(els.prTempoV, `${d.bpm} BPM`);
+  setPromptLine(els.prKeyV, d.keyName, d.scale === 'any' ? 'drone, no fixed scale' : `${d.scale}${d.western ? ` · ${d.western}` : ''}`);
+  setPromptLine(els.prChordsV, d.chords.map((c) => c.name + (c.bars > 1 ? ` ×${c.bars}` : '')).join(' – '),
+    `${d.progressionName} · ${d.chords.map((c) => c.roman).join(' ')}`);
+  setPromptLine(els.prFeelV, `${d.meterName} · ${d.styleName}`);
+}
+
+function stopPreview() {
+  promptState.player?.stop();
+  promptState.player = null;
+  try { promptState.ctx?.close(); } catch {}
+  promptState.ctx = null;
+  els.prListen.textContent = 'Listen';
+}
+
+function startPreview() {
+  if (!promptState.ctx) promptState.ctx = newAudioContext();
+  setAudioSession('playback');
+  promptState.player = new PromptPlayer(promptState.ctx, promptState.prompt).connect(promptState.ctx.destination);
+  promptState.player.start();
+  els.prListen.textContent = 'Stop';
+}
+
+function changePrompt(next) {
+  promptState.prompt = next;
+  renderPromptCard();
+  if (promptState.player) { // keep listening, now to the new prompt
+    promptState.player.stop();
+    startPreview();
+  }
+}
+
+function openPrompt(params = null) {
+  if (state.mode !== 'idle') return;
+  stopPlayback();
+  promptState.prompt = params ? { ...params } : randomPrompt(Math.random, promptState.prompt);
+  renderPromptCard();
+  els.prListen.textContent = 'Listen';
+  openDialog(els.promptDlg);
+}
+
+function closePrompt() {
+  stopPreview();
+  setAudioSession('auto');
+  if (els.promptDlg.open) closeDialog(els.promptDlg);
+}
+
+els.promptBtn.addEventListener('click', () => openPrompt());
+els.prTempo.addEventListener('click', () => changePrompt(rerollPart(promptState.prompt, 'tempo')));
+els.prKey.addEventListener('click', () => changePrompt(rerollPart(promptState.prompt, 'key')));
+els.prChords.addEventListener('click', () => changePrompt(rerollPart(promptState.prompt, 'chords')));
+els.prFeel.addEventListener('click', () => changePrompt(rerollPart(promptState.prompt, 'feel')));
+els.prShuffle.addEventListener('click', () => changePrompt(randomPrompt(Math.random, promptState.prompt)));
+els.prListen.addEventListener('click', () => {
+  if (promptState.player) stopPreview();
+  else startPreview();
+});
+els.prClose.addEventListener('click', closePrompt);
+els.promptDlg.addEventListener('cancel', () => stopPreview());
+els.prRecord.addEventListener('click', () => {
+  // Hand the running preview (if any) over to the recording so the groove doesn't restart.
+  const ctx = promptState.ctx || newAudioContext();
+  const player = promptState.player;
+  promptState.ctx = null;
+  promptState.player = null;
+  closeDialog(els.promptDlg);
+  startRecording({ prompt: promptState.prompt, ctx, player });
+});
+
 els.stopBtn.addEventListener('click', () => stopRecording());
-els.recordBtn.addEventListener('click', startRecording);
+els.recordBtn.addEventListener('click', () => startRecording());
 
 // iOS stops the mic when the app leaves the screen: save what we have.
 document.addEventListener('visibilitychange', () => {
@@ -812,6 +988,7 @@ async function recoverSessions() {
         const meta = {
           id: s.id, name: `${s.name} (recovered)`, createdAt: s.startedAt, bpm: s.bpm, sa: s.sa,
           duration: Math.round(duration * 10) / 10, mimeType: type, size: data.byteLength, recovered: true,
+          ...(s.prompt ? promptFields(s.prompt) : {}),
         };
         await db.saveTune(meta, data);
         tunes.push(meta);
@@ -1086,4 +1263,4 @@ async function boot() {
 boot();
 
 // Exposed for debugging in the console.
-window.tuneNotebook = { state, db, analysisStats, get tunes() { return tunes; } };
+window.tuneNotebook = { state, db, analysisStats, promptState, get tunes() { return tunes; } };

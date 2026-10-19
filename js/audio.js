@@ -1,7 +1,13 @@
-// Audio engine for one recording session: records the raw microphone as is.
+// Audio engine for one recording session.
 //
+// Plain capture records the raw microphone as is:
 //   mic stream ──► MediaRecorder              (the recording)
 //        └──────► AudioContext ► analyser     (level meter + interruption detection)
+//
+// With a backing (Prompt mode) the pulse/guitar are mixed into the take:
+//   mic ──► micGain ─────────────────────► recDest ──► MediaRecorder
+//   backing ──► speakers
+//          └──► backingIn ► delay (latency compensation) ─┘
 
 const MIME_CANDIDATES = [
   'audio/mp4;codecs=mp4a.40.2', // AAC in MP4: iPhone Safari, plays everywhere
@@ -19,10 +25,12 @@ export function pickMimeType() {
 
 export class Engine extends EventTarget {
   // Constructed synchronously inside the Record tap so the AudioContext may start.
-  constructor() {
+  // opts.ctx reuses a running context (the Prompt preview); opts.backing mixes it in.
+  constructor(opts = {}) {
     super();
     const AC = window.AudioContext || window.webkitAudioContext;
-    this.ctx = AC ? new AC() : null;
+    this.ctx = opts.ctx || (AC ? new AC() : null);
+    this.withBacking = !!opts.backing && !!this.ctx;
     this.ctx?.resume?.().catch(() => {});
     this._interrupted = false;
     this._closing = false;
@@ -34,7 +42,9 @@ export class Engine extends EventTarget {
       audio: {
         channelCount: 1,
         // Capture the sound as is: these "voice call" filters squash hums and whistles.
-        echoCancellation: false,
+        // With a backing playing on the speaker, echo cancellation keeps it out of the mic
+        // (it's already mixed in digitally).
+        echoCancellation: this.withBacking,
         noiseSuppression: false,
         autoGainControl: false,
       },
@@ -44,7 +54,21 @@ export class Engine extends EventTarget {
         if (this.ctx.state !== 'running') await this.ctx.resume();
         this.analyser = this.ctx.createAnalyser();
         this.analyser.fftSize = 2048;
-        this.ctx.createMediaStreamSource(this.stream).connect(this.analyser);
+        const src = this.ctx.createMediaStreamSource(this.stream);
+        src.connect(this.analyser);
+        if (this.withBacking) {
+          this.recDest = this.ctx.createMediaStreamDestination();
+          src.connect(this.recDest);
+          // You hear the backing late by the output latency and the mic hears you late by the
+          // input latency, so delay the backing's copy in the recording to line up with you.
+          const track = this.stream.getAudioTracks()[0];
+          const inLat = track?.getSettings?.().latency || 0.01;
+          const outLat = this.ctx.outputLatency || this.ctx.baseLatency || 0.01;
+          this.backingIn = this.ctx.createGain();
+          this.backingDelay = this.ctx.createDelay(1);
+          this.backingDelay.delayTime.value = Math.min(0.9, inLat + outLat);
+          this.backingIn.connect(this.backingDelay).connect(this.recDest);
+        }
       } catch (e) {
         console.warn('Level meter unavailable', e); // recording still works without it
       }
@@ -53,12 +77,24 @@ export class Engine extends EventTarget {
 
   startRecorder(mimeType) {
     const opts = mimeType ? { mimeType, audioBitsPerSecond: 128000 } : {};
-    const r = new MediaRecorder(this.stream, opts);
-    r.ondataavailable = (e) => {
-      if (e.data && e.data.size) this.dispatchEvent(new CustomEvent('chunk', { detail: e.data }));
+    const begin = (stream) => {
+      const r = new MediaRecorder(stream, opts);
+      r.ondataavailable = (e) => {
+        if (e.data && e.data.size) this.dispatchEvent(new CustomEvent('chunk', { detail: e.data }));
+      };
+      r.onerror = (e) => this._fire(`Recorder error${e.error ? ': ' + e.error.message : ''}`);
+      r.start(1000); // 1 s chunks so an interruption loses at most ~1 s
+      return r;
     };
-    r.onerror = (e) => this._fire(`Recorder error${e.error ? ': ' + e.error.message : ''}`);
-    r.start(1000); // 1 s chunks so an interruption loses at most ~1 s
+    let r = null;
+    this.mixed = false;
+    if (this.recDest) {
+      // Some browsers can't record a Web Audio stream (at construction or at start).
+      try { r = begin(this.recDest.stream); this.mixed = true; } catch (e) {
+        console.warn('Mixed recording unsupported, recording the mic only', e);
+      }
+    }
+    r = r || begin(this.stream);
     this.recorder = r;
     this.mimeType = r.mimeType || mimeType || '';
     this.startedAt = performance.now();

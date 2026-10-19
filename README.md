@@ -12,6 +12,14 @@ Plain HTML/CSS/JS, no build step, no backend. Hosted on GitHub Pages, installed 
 2. Sing, hum or whistle. Useful habit: **clap or tap the beat** and **sing your Sa** at the start. It's all in the recording, so tempo and key can be worked out from the audio later.
 3. **Stop & save**. The tune shows at the top of the list, and a moment later it's **analysed automatically** in the background (on the phone, offline): BPM, Sa and scale appear on the row.
 
+**Prompt: compose over a random groove.** Tap **Prompt** under Record for a random starting point:
+- **Tempo** (70–126 BPM), **Sa** (any of the 12 keys), **chords** (14 progressions: pop I–V–vi–IV, folk, ii–V–I, Khamaj/Mixolydian, Asavari "epic minor", Andalusian, Kafi/Dorian vamp, Bhairavi colour, a Sa–Pa drone and more) and **feel** (4/4 or 3/4; let-it-ring, steady strum, folk strum, waltz or fingerpicked).
+- Tap any line to change just that part, or **Shuffle all**. **Listen** previews it; changes apply while it plays.
+- **Record over it**: the groove keeps playing and recording starts. The screen shows the current chord and beat, and Pulse/Guitar can be muted (the mute is recorded too).
+- The pulse and guitar are **in the recording**, so a shared clip has its backing. Earphones keep the mic clean; on the speaker, echo cancellation keeps most of the backing out of the mic. The backing is delayed by the measured audio latency so it lines up with your voice.
+- The tune is saved with the prompt's BPM, Sa, scale and chords (no analysis needed). Its details have **Use this prompt again** to continue the idea later.
+- The guitar is synthesized on the phone (Karplus–Strong plucked strings in real chord shapes), so it works offline.
+
 **Analysis** (tap the grey line under a tune's name to open it):
 - **Tempo** from your clicks, with the range it moved within. No clicks means no tempo.
 - **Time signature**, only when beat 1 is louder (clap on 1, click on the others). Even clicks can't show it.
@@ -41,12 +49,14 @@ js/pitch.js           YIN pitch detection + note naming
 js/analyze.js         melody analysis shared by app and CLI: clicks → tempo/meter; pitch → tuning, Sa, scale, sargam
 js/analysis-client.js decodes a clip (Web Audio) and runs the analysis in the worker, queue-free API
 js/analyze-worker.js  Web Worker wrapper around analyze.js
+js/prompt.js          Prompt mode: random groove, progressions, guitar voicings, plucked-string synth, scheduler
 js/db.js              IndexedDB (tunes, audio, in-progress chunks)
 js/zip.js             zip writer/reader for backups
 icons/                app icons (regenerate with tools/make_icons.py, needs Pillow)
 tools/analyze-tune.mjs  same analysis from the command line: node tools/analyze-tune.mjs file.m4a (macOS afconvert)
 tests/unit.test.mjs   node tests for pitch + zip  (npm test)
 tests/analyze.test.mjs analysis tests: synthetic takes + your confirmed takes if samples/ has the backup
+tests/prompt.test.mjs  prompt tests: valid random prompts, rerolls, chord spelling, voicings, string pitch
 .nojekyll             tells GitHub Pages to serve files as-is
 ```
 
@@ -114,6 +124,8 @@ gh repo create tune-notebook --public --source=. --push
 
 ### What was tested
 
+**v1.3.0 (2026-10-18), Prompt mode:** `npm test` passes 20/20 (500 random prompts valid, rerolls change only one part, D pop = D A Bm G, all 36 voicings have the root in the bass, the right third and a guitar range, plucked strings within 8 cents from E2 to E5). In the browser: the preview beat lands every 0.732 s at 82 BPM, and changing chords mid-preview keeps it playing. Recording over it hands the running groove to the recorder without a restart, shows the live chord and beat, and saves BPM/Sa/chords. Decoding the take and running the app's analyser on it gave 82.2 BPM with 4/4 accents and the guitar clearly present, so the backing is really in the file. Mic denied during a preview stops the groove. Plain Record is unchanged (raw mic, no backing). Not yet tried on an iPhone: the speaker/earphone balance and how the latency compensation feels with Bluetooth.
+
 **v1.2.0 (2026-10-18), in-app analysis:** `npm test` passes 13/13. A synthetic whistled D-major phrase, 30 cents flat with clicks at 90 BPM, gives 90 BPM, −30¢, Sa D, Bilaval and the right sargam. Accented every-3rd click gives 3/4. No clicks gives no tempo but still finds Sa. Silence doesn't crash. Your three confirmed takes still give 85/86/96 BPM and Sa A#/C#/D#. In the browser: importing the backup analysed all three in about 2 s in the Web Worker (0 main-thread fallbacks, longest frame gap 9 ms). Choosing a different Sa is saved and survives "Analyse again". A new recording is analysed automatically right after Stop (fake mic at 90 BPM with Sa G gave 90 BPM, Sa G). Not yet timed on an iPhone.
 
 **v1.1.0 (2026-10-18), simplified capture:** recording screen shows only timer, meter and Stop. Verified the mic is requested with echo cancellation, noise suppression and auto-gain off. The saved file is the clean mic signal: the test tone is present and there's no click or drone energy. Phone-call interruption, mic `ended`, short clip (0.4 s) and crash recovery all still behave as below. Older tunes that have BPM/Sa still show them.
@@ -163,5 +175,7 @@ To try it on your iPhone before deploying, the page must be served over HTTPS (t
 > Then: "Yes, create the tune-notebook GitHub repo and deploy it to GitHub Pages."
 >
 > Then: "on mac. when I run, I recoreded a tune, but when doe analyze run?" → "Do this task here: Add in-app Analyse button for tempo and Sa"
+>
+> Then: "can you build an option Prompt, that plays a pulse at any random reasonable tempo and a guitar chord or progression? and lets me compose over it?"
 >
 > Earlier: "Setting tempo and Sa makes the capturing of the tune interrupting flow. How about just capturing it as is, I will probably click the tempo to start with and sing the sa note, as part of recording, later we can figure out a way to recover the tempo and time signature and key signature and scale from melody itself"
