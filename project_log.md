@@ -91,6 +91,10 @@
 - Tests 20/20 (new tests/prompt.test.mjs). Browser: preview timing exact, reroll mid-preview, record-over handover, the mixed take analyses back to 82.2 BPM / 4/4 with the guitar present, mic denied stops the groove, plain Record unchanged.
 - sw.js v1.3.0 precaches js/prompt.js. Committed locally, not pushed.
 
+## 2026-10-18 18:25 · Deployed v1.3.0
+- Pushed 77f8557. Pages build finished in about 20 s. The live sw.js is v1.3.0 and js/prompt.js returns 200.
+- Live checks: a browser on v1.2.1 showed the new update bar, still visible after 12 s. Tapping Update moved it to v1.3.0 (only the v1.3.0 cache left, prompt.js cached). A live prompt (105 BPM, A#m D#m Fm A#m, Asavari) previewed with beats exactly 0.5714 s apart. Closing the card stopped the audio.
+
 ---
 ### User prompts
 1. (Build brief: see bottom of README.md for the full text.) Build the "Tune Notebook" PWA: record with tap tempo, Sa detection and a tanpura drone mixed in; IndexedDB storage; share/export; offline; deploy and iPhone install guide; test mic denied / phone-call interruption / very short clips.
@@ -108,3 +112,4 @@
 13. "Yes, push v1.2.0 to GitHub so the live app updates."
 14. "Yes, keep the update bar visible until I tap it, and push that."
 15. "can you build an option Prompt, that plays a pulse at any random reasonable tempo and a guitar chord or progression? and lets me compose over it?"
+16. "Yes, push v1.3.0 to GitHub so the live app updates."
