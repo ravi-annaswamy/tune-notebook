@@ -103,6 +103,10 @@
 - Browser: count-in screen OK; the take starts on the downbeat (first sound at 0.045 s, chord-1 root present in the first second); cancel and interruption save nothing; plain Record is unchanged.
 - v1.3.1 (sw.js + APP_VERSION). Committed locally, not pushed.
 
+## 2026-10-18 20:01 · Deployed v1.3.1
+- Pushed cbdf519 (+ the v1.3.0 log commit). Pages build finished in about 20 s. The live sw.js is v1.3.1 and the live prompt.js has the count-in.
+- Live checks: a browser on v1.3.0 showed the update bar; tapping Update moved it to v1.3.1 (only the v1.3.1 cache left). A live prompt at 72 BPM counted in "Count-in 1/2" 1-2-3-4 with the recorder not started, and Cancel saved nothing.
+
 ---
 ### User prompts
 1. (Build brief: see bottom of README.md for the full text.) Build the "Tune Notebook" PWA: record with tap tempo, Sa detection and a tanpura drone mixed in; IndexedDB storage; share/export; offline; deploy and iPhone install guide; test mic denied / phone-call interruption / very short clips.
@@ -122,3 +126,4 @@
 15. "can you build an option Prompt, that plays a pulse at any random reasonable tempo and a guitar chord or progression? and lets me compose over it?"
 16. "Yes, push v1.3.0 to GitHub so the live app updates."
 17. "from prompt listen when i click record over it, there should be a 2 bar count in and automatically starting to record."
+18. "Yes, push v1.3.1 to GitHub so the live app updates."
