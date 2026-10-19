@@ -129,6 +129,11 @@
 - Verified in the app (no-cache server): band-only take −33.8 dB; −38 dB voice → about 6 dB above the band; 0.9 input → peak 0.78, 0 clipped; ec false; ctx 48 kHz. Tests 29/29 (+ band level test).
 - Diagnosis note + spectrograms saved in samples/ (git-ignored). v1.4.1. Committed locally, not pushed.
 
+## 2026-10-18 22:41 · Deployed v1.4.1
+- Pushed a775c37 (+ the v1.4.0 log commit). Pages build finished in about 20 s; the live sw.js is v1.4.1 and the live audio.js has echoCancellation false.
+- Live check (count-in, then Cancel, nothing saved): Band Medium, echo cancellation off, context 48 kHz, limiter present, voice ×2, band −12 dB vs v1.4.
+- Not yet verified on the iPhone itself: the user needs to record a new prompt take.
+
 ---
 ### User prompts
 1. (Build brief: see bottom of README.md for the full text.) Build the "Tune Notebook" PWA: record with tap tempo, Sa detection and a tanpura drone mixed in; IndexedDB storage; share/export; offline; deploy and iPhone install guide; test mic denied / phone-call interruption / very short clips.
@@ -152,3 +157,4 @@
 19. "that is awesome, can you add more variety in sounds, may be a bass, maybe styles, like synth pop, rock, pop, etc, and more strum styles? or may be you can have two eight bar pattersn, the first is sparse in change, the second has a good introduction of one more chord etc, so that the 16 bars are a nice loop to compose with"
 20. "Please continue"
 21. "See backup file from iphone especially the latest ones. Somehow the audio of my voice is crackling. And the band sound probably needs to be a bit lower? (samples/backup from iphone filename)"
+22. "Yes, push v1.4.1 to GitHub so the live app updates."
