@@ -54,7 +54,7 @@
   <section id="recPanel" class="rec-panel" hidden aria-label="Recording">
     <div class="rec-status">
       <span class="rec-dot" aria-hidden="true"></span>
-      <span class="rec-label">Recording</span>
+      <span id="recLabel" class="rec-label">Recording</span>
       <span id="awakeInfo" class="awake-info"></span>
     </div>
 
@@ -72,7 +72,7 @@
       </div>
     </div>
 
-    <button id="stopBtn" class="stop-btn"><span class="sq" aria-hidden="true"></span>Stop &amp; save</button>
+    <button id="stopBtn" class="stop-btn"><span class="sq" aria-hidden="true"></span><span id="stopLabel">Stop &amp; save</span></button>
   </section>
 
   <template id="rowTpl">
@@ -141,7 +141,7 @@
       <button id="prListen" class="btn">Listen</button>
     </div>
     <button id="prRecord" class="btn block danger big">Record over it</button>
-    <p class="small">The pulse and guitar are recorded along with you. Earphones give the cleanest take.</p>
+    <p class="small">You get a 2-bar count-in, then the guitar comes in and recording starts by itself. The pulse and guitar are recorded with you; earphones give the cleanest take.</p>
     <button id="prClose" class="btn block subtle">Close</button>
   </dialog>
 

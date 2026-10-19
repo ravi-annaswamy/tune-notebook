@@ -6,7 +6,7 @@ import { analyseAudio, analysisStats } from './analysis-client.js';
 import { midiToFreq } from './pitch.js';
 import { PromptPlayer, randomPrompt, rerollPart, describePrompt } from './prompt.js';
 
-const APP_VERSION = '1.3.0';
+const APP_VERSION = '1.3.1';
 const MIN_DURATION = 1.0; // seconds; shorter clips are discarded
 const MIN_BYTES = 800;
 
@@ -20,7 +20,7 @@ const els = {
   importBtn: $('#importBtn'), importInput: $('#importInput'), persistInfo: $('#persistInfo'), persistBtn: $('#persistBtn'),
   versionInfo: $('#versionInfo'), seqDlg: $('#seqDlg'), seqInfo: $('#seqInfo'), seqShareBtn: $('#seqShareBtn'),
   seqSkipBtn: $('#seqSkipBtn'), seqDoneBtn: $('#seqDoneBtn'), micDlg: $('#micDlg'), micTitle: $('#micTitle'),
-  micBody: $('#micBody'), installHint: $('#installHint'), hintClose: $('#hintClose'),
+  micBody: $('#micBody'), recLabel: $('#recLabel'), stopLabel: $('#stopLabel'), installHint: $('#installHint'), hintClose: $('#hintClose'),
   updateBar: $('#updateBar'), updateBtn: $('#updateBtn'),
   promptBtn: $('#promptBtn'), promptDlg: $('#promptDlg'), prTempo: $('#prTempo'), prTempoV: $('#prTempoV'),
   prKey: $('#prKey'), prKeyV: $('#prKeyV'), prChords: $('#prChords'), prChordsV: $('#prChordsV'),
@@ -666,7 +666,10 @@ function persistSessionMeta() {
   s.writes = s.writes.then(() => db.putSession(sessionMeta(s))).catch(warn);
 }
 
-// opts.prompt: compose over a pulse + guitar. opts.ctx / opts.player: the running preview to keep.
+const COUNT_IN_BARS = 2;
+
+// opts.prompt: compose over a pulse + guitar, after a COUNT_IN_BARS count-in.
+// opts.ctx: the prompt preview's AudioContext (already unlocked by a tap).
 async function startRecording(opts = {}) {
   if (state.mode !== 'idle') return;
   if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
@@ -687,16 +690,8 @@ async function startRecording(opts = {}) {
   try {
     await engine.openMic();
   } catch (e) {
-    opts.player?.stop();
     engine.dispose();
     return abortStart(() => showMicHelp(e.name, e));
-  }
-
-  let player = null;
-  if (opts.prompt) {
-    player = opts.player || new PromptPlayer(engine.ctx, opts.prompt).connect(engine.ctx.destination);
-    if (engine.backingIn) player.connect(engine.backingIn);
-    player.start();
   }
 
   const startedAt = Date.now();
@@ -706,28 +701,93 @@ async function startRecording(opts = {}) {
   };
   engine.addEventListener('chunk', (e) => onChunk(s, e.detail));
   engine.addEventListener('interrupted', (e) => stopRecording(e.detail));
-  try {
-    engine.startRecorder(pickMimeType());
-  } catch (e) {
-    player?.stop();
-    engine.dispose();
-    return abortStart(() => toast(`Couldn't start recording: ${e.message}`));
-  }
-  s.mimeType = engine.mimeType;
   state.engine = engine;
   state.session = s;
-  state.player = player;
-  state.mode = 'recording';
-  persistSessionMeta();
+  state.player = null;
 
   resetRecUI(opts.prompt);
   els.recPanel.hidden = false;
   document.body.classList.add('rec-active');
   els.recordBtn.disabled = false;
   acquireWakeLock();
-  meterLoop();
+
+  if (opts.prompt) {
+    // Count-in: clicks only, then the groove starts at chord 1 and recording starts with it.
+    const player = new PromptPlayer(engine.ctx, opts.prompt).connect(engine.ctx.destination);
+    if (engine.backingIn) player.connect(engine.backingIn);
+    player.start(engine.ctx.currentTime + 0.2, { countInBars: COUNT_IN_BARS });
+    state.player = player;
+    state.mode = 'countin';
+    setCountInUI(true);
+    meterLoop();
+    // Start the recorder just before the downbeat. Both the groove and your voice
+    // go into the same file, so a few ms of timer slop can't put them out of sync.
+    await waitForAudioTime(engine.ctx, player.musicStart - 0.06, () => state.mode === 'countin' && state.engine === engine);
+    if (state.mode !== 'countin' || state.engine !== engine) return; // cancelled
+    if (engine.ctx.state !== 'running') { cancelCountIn('Interrupted during the count-in. Nothing was recorded'); return; }
+    setCountInUI(false);
+  }
+
+  try {
+    engine.startRecorder(pickMimeType());
+  } catch (e) {
+    cancelAnimationFrame(meterRaf);
+    state.player?.stop();
+    state.player = null;
+    engine.dispose();
+    state.engine = null;
+    state.session = null;
+    releaseWakeLock();
+    hideRecPanel();
+    return abortStart(() => toast(`Couldn't start recording: ${e.message}`));
+  }
+  s.mimeType = engine.mimeType;
+  state.mode = 'recording';
+  persistSessionMeta();
+  if (!opts.prompt) meterLoop();
   requestPersist();
   if (opts.prompt && !engine.mixed) toast("This browser can't record the backing: only your voice is saved");
+}
+
+// Resolves when the AudioContext clock reaches t, or as soon as stillWanted() turns false.
+function waitForAudioTime(ctx, t, stillWanted) {
+  return new Promise((resolve) => {
+    const tick = () => {
+      const left = t - ctx.currentTime;
+      if (left <= 0 || !stillWanted() || ctx.state !== 'running') return resolve();
+      setTimeout(tick, Math.max(4, Math.min(50, left * 1000 - 4)));
+    };
+    tick();
+  });
+}
+
+function hideRecPanel() {
+  els.recPanel.hidden = true;
+  document.body.classList.remove('rec-active');
+  setCountInUI(false);
+}
+
+function setCountInUI(on) {
+  els.recPanel.classList.toggle('counting', on);
+  els.recLabel.textContent = on ? 'Count-in' : 'Recording';
+  els.stopLabel.textContent = on ? 'Cancel' : 'Stop & save';
+}
+
+// Cancelling during the count-in: nothing was recorded, so nothing is saved.
+function cancelCountIn(message) {
+  if (state.mode !== 'countin') return;
+  cancelAnimationFrame(meterRaf);
+  state.player?.stop();
+  state.player = null;
+  state.engine?.dispose();
+  state.engine = null;
+  state.session = null;
+  releaseWakeLock();
+  setAudioSession('auto');
+  hideRecPanel();
+  state.mode = 'idle';
+  notifyIdle();
+  if (message) toast(message);
 }
 
 function abortStart(report) {
@@ -805,12 +865,19 @@ async function stopRecording(reason) {
 let meterRaf = 0;
 function meterLoop() {
   const eng = state.engine;
-  if (!eng || state.mode !== 'recording') return;
+  if (!eng || (state.mode !== 'recording' && state.mode !== 'countin')) return;
   const rms = eng.level();
   const dbfs = 20 * Math.log10(rms + 1e-6);
   els.meterFill.style.transform = `scaleX(${clamp((dbfs + 60) / 60, 0, 1)})`;
-  els.recTime.textContent = fmtDur(elapsedSec());
-  if (state.player) showPromptPosition(state.player.position());
+  const pos = state.player ? state.player.position() : null;
+  if (state.mode === 'countin') {
+    // Big beat number: 1 2 3 4, 1 2 3 4 …
+    els.recTime.textContent = pos?.countIn ? String(pos.beatInBar + 1) : '·';
+    els.recLabel.textContent = pos?.countIn ? `Count-in ${pos.bar + 1}/${COUNT_IN_BARS}` : 'Count-in';
+  } else {
+    els.recTime.textContent = fmtDur(elapsedSec());
+  }
+  if (pos) showPromptPosition(pos);
   meterRaf = requestAnimationFrame(meterLoop);
 }
 
@@ -950,20 +1017,22 @@ els.prListen.addEventListener('click', () => {
 els.prClose.addEventListener('click', closePrompt);
 els.promptDlg.addEventListener('cancel', () => stopPreview());
 els.prRecord.addEventListener('click', () => {
-  // Hand the running preview (if any) over to the recording so the groove doesn't restart.
+  // Stop the preview but keep its (already unlocked) AudioContext for the recording;
+  // the take starts cleanly at chord 1 after the count-in.
   const ctx = promptState.ctx || newAudioContext();
-  const player = promptState.player;
+  promptState.player?.stop();
   promptState.ctx = null;
   promptState.player = null;
   closeDialog(els.promptDlg);
-  startRecording({ prompt: promptState.prompt, ctx, player });
+  startRecording({ prompt: promptState.prompt, ctx });
 });
 
-els.stopBtn.addEventListener('click', () => stopRecording());
+els.stopBtn.addEventListener('click', () => (state.mode === 'countin' ? cancelCountIn('Cancelled. Nothing was recorded') : stopRecording()));
 els.recordBtn.addEventListener('click', () => startRecording());
 
 // iOS stops the mic when the app leaves the screen: save what we have.
 document.addEventListener('visibilitychange', () => {
+  if (document.hidden && state.mode === 'countin') { cancelCountIn(); return; }
   if (document.hidden && state.mode === 'recording' && isIOS) {
     stopRecording('Recording stopped when the app left the screen');
   } else if (!document.hidden && state.mode === 'recording' && !wakeLock) {

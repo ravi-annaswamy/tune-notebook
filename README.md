@@ -15,7 +15,7 @@ Plain HTML/CSS/JS, no build step, no backend. Hosted on GitHub Pages, installed 
 **Prompt: compose over a random groove.** Tap **Prompt** under Record for a random starting point:
 - **Tempo** (70–126 BPM), **Sa** (any of the 12 keys), **chords** (14 progressions: pop I–V–vi–IV, folk, ii–V–I, Khamaj/Mixolydian, Asavari "epic minor", Andalusian, Kafi/Dorian vamp, Bhairavi colour, a Sa–Pa drone and more) and **feel** (4/4 or 3/4; let-it-ring, steady strum, folk strum, waltz or fingerpicked).
 - Tap any line to change just that part, or **Shuffle all**. **Listen** previews it; changes apply while it plays.
-- **Record over it**: the groove keeps playing and recording starts. The screen shows the current chord and beat, and Pulse/Guitar can be muted (the mute is recorded too).
+- **Record over it**: a **2-bar count-in** of clicks (beat 1 accented, a big 1-2-3-4 on screen), then the guitar comes in on chord 1 and **recording starts by itself** on that downbeat. **Cancel** during the count-in saves nothing. While recording, the screen shows the current chord and beat, and Pulse/Guitar can be muted (the mute is recorded too).
 - The pulse and guitar are **in the recording**, so a shared clip has its backing. Earphones keep the mic clean; on the speaker, echo cancellation keeps most of the backing out of the mic. The backing is delayed by the measured audio latency so it lines up with your voice.
 - The tune is saved with the prompt's BPM, Sa, scale and chords (no analysis needed). Its details have **Use this prompt again** to continue the idea later.
 - The guitar is synthesized on the phone (Karplus–Strong plucked strings in real chord shapes), so it works offline.
@@ -124,6 +124,8 @@ gh repo create tune-notebook --public --source=. --push
 
 ### What was tested
 
+**v1.3.1 (2026-10-18), count-in:** `npm test` 23/23. Using a stand-in audio engine: a 2-bar count-in is exactly 8 clicks in 4/4 (6 in 3/4), accented on beat 1, with no guitar until the downbeat. The first strum and chord 1 land on the downbeat, and the preview (no count-in) starts at once. In the browser: Listen → Record over it showed "Count-in 1/2" with a big beat number and Cancel, and the recorder only started after the count-in. In the decoded take, sound starts at 0.045 s and the first chord's root is present in the first second. Cancel and an audio interruption during the count-in both save nothing, and plain Record is still instant.
+
 **v1.3.0 (2026-10-18), Prompt mode:** `npm test` passes 20/20 (500 random prompts valid, rerolls change only one part, D pop = D A Bm G, all 36 voicings have the root in the bass, the right third and a guitar range, plucked strings within 8 cents from E2 to E5). In the browser: the preview beat lands every 0.732 s at 82 BPM, and changing chords mid-preview keeps it playing. Recording over it hands the running groove to the recorder without a restart, shows the live chord and beat, and saves BPM/Sa/chords. Decoding the take and running the app's analyser on it gave 82.2 BPM with 4/4 accents and the guitar clearly present, so the backing is really in the file. Mic denied during a preview stops the groove. Plain Record is unchanged (raw mic, no backing). Not yet tried on an iPhone: the speaker/earphone balance and how the latency compensation feels with Bluetooth.
 
 **v1.2.0 (2026-10-18), in-app analysis:** `npm test` passes 13/13. A synthetic whistled D-major phrase, 30 cents flat with clicks at 90 BPM, gives 90 BPM, −30¢, Sa D, Bilaval and the right sargam. Accented every-3rd click gives 3/4. No clicks gives no tempo but still finds Sa. Silence doesn't crash. Your three confirmed takes still give 85/86/96 BPM and Sa A#/C#/D#. In the browser: importing the backup analysed all three in about 2 s in the Web Worker (0 main-thread fallbacks, longest frame gap 9 ms). Choosing a different Sa is saved and survives "Analyse again". A new recording is analysed automatically right after Stop (fake mic at 90 BPM with Sa G gave 90 BPM, Sa G). Not yet timed on an iPhone.
@@ -177,5 +179,7 @@ To try it on your iPhone before deploying, the page must be served over HTTPS (t
 > Then: "on mac. when I run, I recoreded a tune, but when doe analyze run?" → "Do this task here: Add in-app Analyse button for tempo and Sa"
 >
 > Then: "can you build an option Prompt, that plays a pulse at any random reasonable tempo and a guitar chord or progression? and lets me compose over it?"
+>
+> Then: "from prompt listen when i click record over it, there should be a 2 bar count in and automatically starting to record."
 >
 > Earlier: "Setting tempo and Sa makes the capturing of the tune interrupting flow. How about just capturing it as is, I will probably click the tempo to start with and sing the sa note, as part of recording, later we can figure out a way to recover the tempo and time signature and key signature and scale from melody itself"

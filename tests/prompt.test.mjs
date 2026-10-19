@@ -91,3 +91,77 @@ test('plucked strings sound at the right pitch and decay', () => {
     assert.ok(rms(2, 2.5) < rms(0.1, 0.6) * 0.5, 'decays');
   }
 });
+
+// Minimal stand-in for an AudioContext that records when clicks and plucks are scheduled.
+function fakeAudioContext() {
+  const events = [];
+  const param = () => ({
+    value: 0,
+    setValueAtTime(v) { if (this.first == null) this.first = v; this.value = v; },
+    exponentialRampToValueAtTime() {}, linearRampToValueAtTime() {}, setTargetAtTime() {}, cancelScheduledValues() {},
+  });
+  const node = (extra = {}) => ({ connect: (n) => n, disconnect() {}, ...extra });
+  const ctx = {
+    currentTime: 0, sampleRate: 48000, events,
+    createGain: () => node({ gain: param() }),
+    createBiquadFilter: () => node({ frequency: param(), Q: param(), gain: param() }),
+    createBuffer: (ch, len) => ({ getChannelData: () => new Float32Array(len) }),
+    createBufferSource: () => node({ start(t) { events.push({ kind: 'pluck', t }); }, stop() {} }),
+    createOscillator() {
+      const o = node({ frequency: param(), start(t) { events.push({ kind: 'click', t, accent: o.frequency.first > 1300 }); }, stop() {} });
+      return o;
+    },
+  };
+  return ctx;
+}
+
+async function runPlayer(prompt, countInBars, until) {
+  const { PromptPlayer } = await import('../js/prompt.js');
+  const ctx = fakeAudioContext();
+  const player = new PromptPlayer(ctx, prompt);
+  player.start(0.2, { countInBars });
+  clearInterval(player._timer); // drive the scheduler by hand
+  const ui = [];
+  for (let t = 0; t <= until; t += 0.02) {
+    ctx.currentTime = t;
+    player._tick();
+    const pos = player.position();
+    if (!ui.length || ui[ui.length - 1] !== pos) ui.push(pos);
+  }
+  player.stop();
+  return { ctx, player, ui };
+}
+
+test('count-in: 2 bars of clicks only, then the groove and chord 1 on the downbeat (4/4)', async () => {
+  const { ctx, player, ui } = await runPlayer({ bpm: 120, meter: 4, keyPc: 2, progressionId: 'pop', styleId: 'quarter' }, 2, 7);
+  assert.equal(player.musicStart, 0.2 + 8 * 0.5);
+  const clicks = ctx.events.filter((e) => e.kind === 'click');
+  const plucks = ctx.events.filter((e) => e.kind === 'pluck');
+  clicks.slice(0, 12).forEach((c, k) => {
+    assert.ok(Math.abs(c.t - (0.2 + k * 0.5)) < 1e-9, `click ${k} at ${c.t}`);
+    assert.equal(c.accent, k % 4 === 0, `accent on beat 1 only (click ${k})`);
+  });
+  assert.ok(plucks.length > 0, 'guitar plays after the count-in');
+  const first = Math.min(...plucks.map((e) => e.t));
+  assert.ok(first >= player.musicStart - 1e-9 && first < player.musicStart + 0.1, `first strum at ${first}`);
+  const countIn = ui.filter((p) => p.countIn);
+  assert.deepEqual(countIn.map((p) => `${p.bar}:${p.beatInBar}`), ['0:0', '0:1', '0:2', '0:3', '1:0', '1:1', '1:2', '1:3']);
+  const firstMusic = ui.find((p) => p.t >= player.musicStart - 1e-9 && !p.countIn);
+  assert.equal(firstMusic.chordIdx, 0);
+  assert.equal(firstMusic.beatInBar, 0);
+});
+
+test('count-in in 3/4 is 6 clicks', async () => {
+  const { ctx, player } = await runPlayer({ bpm: 90, meter: 3, keyPc: 9, progressionId: 'epic', styleId: 'waltz' }, 2, 5.5);
+  const spb = 60 / 90;
+  assert.ok(Math.abs(player.musicStart - (0.2 + 6 * spb)) < 1e-9);
+  const before = ctx.events.filter((e) => e.t < player.musicStart - 1e-9);
+  assert.equal(before.filter((e) => e.kind === 'click').length, 6);
+  assert.equal(before.filter((e) => e.kind === 'pluck').length, 0);
+});
+
+test('no count-in: the groove starts right away (preview)', async () => {
+  const { ctx, player } = await runPlayer({ bpm: 100, meter: 4, keyPc: 0, progressionId: 'folk', styleId: 'ring' }, 0, 1);
+  assert.equal(player.musicStart, 0.2);
+  assert.ok(ctx.events.some((e) => e.kind === 'pluck' && Math.abs(e.t - 0.2) < 0.1));
+});

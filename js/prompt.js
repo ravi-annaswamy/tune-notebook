@@ -198,10 +198,14 @@ export class PromptPlayer {
 
   connect(node) { this.out.connect(node); return this; }
 
-  start(at = this.ctx.currentTime + 0.08) {
+  // countInBars: clicks only for that many bars, then the groove starts from chord 1
+  // at this.musicStart (AudioContext time).
+  start(at = this.ctx.currentTime + 0.08, { countInBars = 0 } = {}) {
     if (this.playing) return;
     this.playing = true;
     this.t0 = at;
+    this.countInBeats = countInBars * this.prompt.meter;
+    this.musicStart = at + this.countInBeats * this.spb;
     this.nextBeat = 0;
     this.lastChord = -1;
     this._timer = setInterval(() => this._tick(), 25);
@@ -238,14 +242,21 @@ export class PromptPlayer {
     }
   }
 
-  _scheduleBeat(b) {
+  _scheduleBeat(globalBeat) {
     const { meter } = this.prompt;
+    const t = this.t0 + globalBeat * this.spb;
+    if (t < this.ctx.currentTime - 0.01) return; // timer stalled: skip rather than pile up
+    if (globalBeat < this.countInBeats) {
+      const beatInBar = globalBeat % meter;
+      this._click(t, beatInBar === 0);
+      this.uiQueue.push({ t, countIn: true, bar: Math.floor(globalBeat / meter), beatInBar, chordIdx: -1 });
+      return;
+    }
+    const b = globalBeat - this.countInBeats;
     const bar = Math.floor(b / meter);
     const beatInBar = b % meter;
     const { barChord, style, voicings } = this.plan;
     const chordIdx = barChord[bar % barChord.length];
-    const t = this.t0 + b * this.spb;
-    if (t < this.ctx.currentTime - 0.01) return; // timer stalled: skip rather than pile up
     this._click(t, beatInBar === 0);
     const voicing = voicings[chordIdx];
     const chordChange = chordIdx !== this.lastChord && beatInBar === 0;

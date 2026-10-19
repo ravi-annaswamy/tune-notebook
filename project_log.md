@@ -95,6 +95,14 @@
 - Pushed 77f8557. Pages build finished in about 20 s. The live sw.js is v1.3.0 and js/prompt.js returns 200.
 - Live checks: a browser on v1.2.1 showed the new update bar, still visible after 12 s. Tapping Update moved it to v1.3.0 (only the v1.3.0 cache left, prompt.js cached). A live prompt (105 BPM, A#m D#m Fm A#m, Asavari) previewed with beats exactly 0.5714 s apart. Closing the card stopped the audio.
 
+## 2026-10-18 20:00 · v1.3.1: 2-bar count-in before recording over a prompt
+- PromptPlayer.start(at, {countInBars}): clicks only (accent on 1) for the count-in, then the groove from chord 1 at player.musicStart. UI queue entries carry countIn/bar/beatInBar.
+- Record over it now stops the preview (keeping its unlocked AudioContext), opens the mic, runs a fresh player with COUNT_IN_BARS = 2, and waits on the AudioContext clock (waitForAudioTime). It starts the MediaRecorder 60 ms before the downbeat. Timer slop can't desync anything, since the backing and voice are mixed into one file.
+- New mode 'countin': the panel gets a .counting class (big beat number, "Count-in 1/2", grey dot, Cancel). cancelCountIn() covers Cancel, the app going to the background, and an interruption during the count-in (ctx not running). Nothing is saved. A startRecorder failure after the count-in now also releases the wake lock and meter loop.
+- Tests 23/23: new fake-AudioContext tests for count-in timing (4/4, 3/4, none).
+- Browser: count-in screen OK; the take starts on the downbeat (first sound at 0.045 s, chord-1 root present in the first second); cancel and interruption save nothing; plain Record is unchanged.
+- v1.3.1 (sw.js + APP_VERSION). Committed locally, not pushed.
+
 ---
 ### User prompts
 1. (Build brief: see bottom of README.md for the full text.) Build the "Tune Notebook" PWA: record with tap tempo, Sa detection and a tanpura drone mixed in; IndexedDB storage; share/export; offline; deploy and iPhone install guide; test mic denied / phone-call interruption / very short clips.
@@ -113,3 +121,4 @@
 14. "Yes, keep the update bar visible until I tap it, and push that."
 15. "can you build an option Prompt, that plays a pulse at any random reasonable tempo and a guitar chord or progression? and lets me compose over it?"
 16. "Yes, push v1.3.0 to GitHub so the live app updates."
+17. "from prompt listen when i click record over it, there should be a 2 bar count in and automatically starting to record."

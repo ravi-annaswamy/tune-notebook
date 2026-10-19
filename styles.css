@@ -274,6 +274,11 @@ svg { width: 24px; height: 24px; fill: currentColor; }
 }
 .chip[aria-pressed="false"] { color: var(--muted); text-decoration: line-through; }
 .rec-panel.with-prompt .rec-time { font-size: 64px; }
+.rec-panel.counting .rec-dot { background: var(--muted); animation: none; }
+.rec-panel.counting .rec-label { color: var(--tempo); }
+.rec-panel.counting .rec-time { font-size: 120px; color: var(--tempo); }
+.rec-panel.counting .stop-btn { background: var(--surface-2); color: var(--text); }
+.rec-panel.counting .stop-btn .sq { display: none; }
 .rec-panel.with-prompt .rec-center { gap: 18px; }
 
 .stop-btn {
