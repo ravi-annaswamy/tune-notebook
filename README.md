@@ -31,7 +31,7 @@ Plain HTML/CSS/JS, no build step, no backend. Hosted on GitHub Pages, installed 
   - **Loop:** the old 4-bar loop.
 - **Shuffle** keeps your style and changes everything else. A new prompt starts in the style you used last. **Listen** previews it; changes apply while it plays.
 - **Record over it**: a **2-bar count-in** of clicks (beat 1 accented, a big 1-2-3-4 on screen), then the band comes in on bar 1 and **recording starts by itself**. **Cancel** during the count-in saves nothing. While recording you see all 16 bars as a chord map with the current bar lit, "Part A · bar 3 of 8", and toggles for **Click / Drums / Bass / Chords** (the click starts off when there are drums; mutes are recorded too).
-- The backing is **in the recording**, so a shared clip has its band. Earphones keep the mic clean. The backing is delayed by the measured audio latency so it lines up with your voice.
+- **Band** (Soft / Medium / Loud, remembered) sets how loud the band is in the take. Your phone's volume buttons only change what you hear. The backing is **in the recording**, so a shared clip has its band, lined up with your voice by the measured audio latency. Your voice gets +6 dB in the mix and a limiter keeps the sum from clipping. The mic is recorded raw, like plain takes: no echo canceller, which garbled sustained notes. Wired earphones or the speaker work best; Bluetooth earphones switch the mic to phone-call quality.
 - The tune is saved with its style, feel, BPM, Sa, scale, both parts' chords and the new chord. **Use this prompt again** in its details brings the same groove back. Prompts saved by v1.3 replay as the acoustic loop they were.
 
 **Analysis** (tap the grey line under a tune's name to open it):
@@ -141,6 +141,8 @@ gh repo create tune-notebook --public --source=. --push
 
 ### What was tested
 
+**v1.4.1 (2026-10-19), crackle fix:** diagnosed from your iPhone backup (see `samples/crackle-diagnosis-2026-10-19.md`): band ~17 dB over the voice, clipping in 3 takes, iOS echo cancellation on, 44.1 kHz resampling. After the fix, in the app: the band alone in a take is −33.8 dB (was −21 to −24). A voice at your measured level sits about 6 dB above the band. A very loud input peaks at 0.78 with 0 clipped samples. Echo cancellation is off and the context runs at 48 kHz. `npm test` 29/29. Not yet re-recorded on the iPhone.
+
 **v1.4.0 (2026-10-18), styles, sounds and 16-bar form:** `npm test` passes 28/28:
 - Across all 14 progressions × 8 colour choices: A changes chord at most 4 times, B moves more and contains the marked new chord, and bar 16 is the turnaround.
 - Every feel's patterns exist and fit its meter. In Rock: power chords, bass on the roots, a crash at bars 1 and 9, 4-hit snare fills in bars 8 and 16, and busier hats in B. In Synth pop: pads cover all 16 bars and the arpeggio plays 16 notes a bar.
@@ -214,5 +216,7 @@ To try it on your iPhone before deploying, the page must be served over HTTPS (t
 > Then: "from prompt listen when i click record over it, there should be a 2 bar count in and automatically starting to record."
 >
 > Then: "that is awesome, can you add more variety in sounds, may be a bass, maybe styles, like synth pop, rock, pop, etc, and more strum styles? or may be you can have two eight bar pattersn, the first is sparse in change, the second has a good introduction of one more chord etc, so that the 16 bars are a nice loop to compose with"
+>
+> Then: "See backup file from iphone especially the latest ones. Somehow the audio of my voice is crackling. And the band sound probably needs to be a bit lower?"
 >
 > Earlier: "Setting tempo and Sa makes the capturing of the tune interrupting flow. How about just capturing it as is, I will probably click the tempo to start with and sing the sa note, as part of recording, later we can figure out a way to recover the tempo and time signature and key signature and scale from melody itself"

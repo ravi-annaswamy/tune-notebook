@@ -4,10 +4,10 @@ import { makeZip, readZip } from './zip.js';
 import { ANALYSIS_VERSION, SWARA, saMidiFor, sargamString } from './analyze.js';
 import { analyseAudio, analysisStats } from './analysis-client.js';
 import { midiToFreq } from './pitch.js';
-import { randomPrompt, rerollPart, describePrompt, normalizePrompt, buildPlan, partsOf } from './prompt.js';
+import { randomPrompt, rerollPart, describePrompt, normalizePrompt, buildPlan, partsOf, BAND_LEVELS, bandLevel } from './prompt.js';
 import { PromptPlayer } from './prompt-player.js';
 
-const APP_VERSION = '1.4.0';
+const APP_VERSION = '1.4.1';
 const MIN_DURATION = 1.0; // seconds; shorter clips are discarded
 const MIN_BYTES = 800;
 
@@ -25,6 +25,7 @@ const els = {
   updateBar: $('#updateBar'), updateBtn: $('#updateBtn'),
   promptBtn: $('#promptBtn'), promptDlg: $('#promptDlg'), prTempo: $('#prTempo'), prTempoV: $('#prTempoV'),
   prStyle: $('#prStyle'), prStyleV: $('#prStyleV'), prForm: $('#prForm'), prFormV: $('#prFormV'),
+  prBand: $('#prBand'), prBandV: $('#prBandV'),
   prKey: $('#prKey'), prKeyV: $('#prKeyV'), prChords: $('#prChords'), prChordsV: $('#prChordsV'),
   prFeel: $('#prFeel'), prFeelV: $('#prFeelV'), prShuffle: $('#prShuffle'), prListen: $('#prListen'),
   prRecord: $('#prRecord'), prClose: $('#prClose'), recPrompt: $('#recPrompt'), rpInfo: $('#rpInfo'),
@@ -721,7 +722,7 @@ async function startRecording(opts = {}) {
 
   if (opts.prompt) {
     // Count-in: clicks only, then the groove starts at chord 1 and recording starts with it.
-    const player = new PromptPlayer(engine.ctx, opts.prompt).connect(engine.ctx.destination);
+    const player = new PromptPlayer(engine.ctx, opts.prompt, { level: promptLevel }).connect(engine.ctx.destination);
     if (engine.backingIn) player.connect(engine.backingIn);
     player.start(engine.ctx.currentTime + 0.2, { countInBars: COUNT_IN_BARS });
     state.player = player;
@@ -958,6 +959,7 @@ function promptFields(params) {
       sections: d.sections.map((sec) => ({ name: sec.name, bars: sec.bars.map((c) => c.name) })),
       chords: d.chords.map((c) => ({ name: c.name, roman: c.roman })),
       newChord: d.newChord ? { name: d.newChord.name, roman: d.newChord.roman } : null,
+      band: promptLevel,
     },
     bpm: d.bpm,
     bpmSource: 'prompt',
@@ -967,7 +969,12 @@ function promptFields(params) {
 
 function newAudioContext() {
   const AC = window.AudioContext || window.webkitAudioContext;
-  const ctx = new AC({ latencyHint: 'interactive' });
+  // 48 kHz is the iPhone mic's own rate: a context at 44.1 kHz (e.g. with Bluetooth
+  // output) made Safari resample the voice. 'balanced' gives the synth a bit more buffer.
+  let ctx;
+  try { ctx = new AC({ latencyHint: 'balanced', sampleRate: 48000 }); } catch {
+    try { ctx = new AC({ latencyHint: 'balanced' }); } catch { ctx = new AC(); }
+  }
   const b = ctx.createBuffer(1, 1, ctx.sampleRate); // unlock output on iOS inside the tap
   const src = ctx.createBufferSource();
   src.buffer = b;
@@ -1006,8 +1013,23 @@ function renderPromptCard() {
     setPromptLine(els.prChordsV, compressBars(d.sections[0].bars), `${d.progressionName} · ${d.chords.map((c) => c.roman).join(' ')}`);
   }
   setPromptLine(els.prFeelV, `${d.meterName} · ${d.feelName}`);
+  renderBandLine();
   setPromptLine(els.prFormV, d.formName, d.form === 'ab' ? 'A holds each chord 2 bars; B moves every bar and adds one chord' : 'the progression on repeat');
 }
+
+// How loud the band is in your ear and in the take; remembered between sessions.
+let promptLevel = 'medium';
+try { promptLevel = bandLevel(localStorage.getItem('promptLevel')).id; } catch {}
+function renderBandLine() {
+  setPromptLine(els.prBandV, bandLevel(promptLevel).name, 'how loud the band is in the take · phone volume only changes what you hear');
+}
+els.prBand.addEventListener('click', () => {
+  const i = BAND_LEVELS.findIndex((l) => l.id === promptLevel);
+  promptLevel = BAND_LEVELS[(i + 1) % BAND_LEVELS.length].id;
+  try { localStorage.setItem('promptLevel', promptLevel); } catch {}
+  renderBandLine();
+  promptState.player?.setLevel(promptLevel);
+});
 
 let lastGenre = null;
 try { lastGenre = localStorage.getItem('promptGenre'); } catch {}
@@ -1027,7 +1049,7 @@ function stopPreview() {
 function startPreview() {
   if (!promptState.ctx) promptState.ctx = newAudioContext();
   setAudioSession('playback');
-  promptState.player = new PromptPlayer(promptState.ctx, promptState.prompt).connect(promptState.ctx.destination);
+  promptState.player = new PromptPlayer(promptState.ctx, promptState.prompt, { level: promptLevel }).connect(promptState.ctx.destination);
   promptState.player.start();
   els.prListen.textContent = 'Stop';
 }

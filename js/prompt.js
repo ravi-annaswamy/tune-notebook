@@ -30,6 +30,15 @@ export const COLOURS = {
   drone: [[5, '5', 'IV5'], [7, '5', 'V5'], [3, '5', '♭III5'], [10, '5', '♭VII5']],
 };
 
+// How loud the band is (dB, relative to the v1.4 mix). Medium is 12 dB below v1.4: on an
+// iPhone the band was ~17 dB louder than the voice in v1.3 prompt takes.
+export const BAND_LEVELS = [
+  { id: 'soft', name: 'Soft', db: -18 },
+  { id: 'medium', name: 'Medium', db: -12 },
+  { id: 'loud', name: 'Loud', db: -6 },
+];
+export const bandLevel = (id) => BAND_LEVELS.find((l) => l.id === id) || BAND_LEVELS[1];
+
 // gain evens out loudness between a lone guitar and a full band; mix nudges one part
 // (both from measuring each part alone).
 export const GENRES = [

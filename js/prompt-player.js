@@ -1,12 +1,13 @@
 // Plays a prompt: optional count-in, then the arrangement from eventsForBeat on a
 // 25 ms lookahead scheduler. position() reports the beat/bar that is sounding now.
 
-import { buildPlan, eventsForBeat, partsOf } from './prompt.js';
+import { buildPlan, eventsForBeat, partsOf, bandLevel } from './prompt.js';
 import { Instruments } from './instruments.js';
 
 export class PromptPlayer {
-  // trace: optional array; every scheduled event is pushed to it (used by tests).
-  constructor(ctx, prompt, { trace = null } = {}) {
+  // level: 'soft' | 'medium' | 'loud' (BAND_LEVELS). trace: optional array; every
+  // scheduled event is pushed to it (used by tests).
+  constructor(ctx, prompt, { trace = null, level = 'medium' } = {}) {
     this.ctx = ctx;
     this.plan = buildPlan(prompt);
     this.prompt = this.plan.p;
@@ -15,7 +16,7 @@ export class PromptPlayer {
     this.parts = partsOf(this.plan);
     this.inst = new Instruments(ctx);
     this.out = this.inst.out;
-    this.out.gain.value = 0.9 * (this.plan.genre.gain || 1);
+    this.out.gain.value = this._gainFor(level);
     for (const [part, m] of Object.entries(this.plan.genre.mix || {})) {
       this.inst.levels[part] *= m;
       this.inst.buses[part].gain.value = this.inst.levels[part];
@@ -31,6 +32,15 @@ export class PromptPlayer {
   }
 
   connect(node) { this.out.connect(node); return this; }
+
+  _gainFor(level) {
+    return 0.9 * (this.plan.genre.gain || 1) * Math.pow(10, bandLevel(level).db / 20);
+  }
+
+  setLevel(level) {
+    if (this.playing) this.out.gain.setTargetAtTime(this._gainFor(level), this.ctx.currentTime, 0.05);
+    else this.out.gain.value = this._gainFor(level);
+  }
 
   // countInBars: clicks only for that many bars, then the groove starts at bar 1 at
   // this.musicStart (AudioContext time).

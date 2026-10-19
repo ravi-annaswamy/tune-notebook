@@ -4,10 +4,12 @@
 //   mic stream ──► MediaRecorder              (the recording)
 //        └──────► AudioContext ► analyser     (level meter + interruption detection)
 //
-// With a backing (Prompt mode) the pulse/guitar are mixed into the take:
-//   mic ──► micGain ─────────────────────► recDest ──► MediaRecorder
-//   backing ──► speakers
-//          └──► backingIn ► delay (latency compensation) ─┘
+// With a backing (Prompt mode) the band is mixed into the take:
+//   mic ──► micGain (+6 dB) ─────────────────────► limiter ──► recDest ──► MediaRecorder
+//   backing ──► speakers                              ▲
+//          └──► backingIn ► delay (latency comp.) ────┘
+// The limiter stops the voice + band sum from clipping (clipping sounded like crackle in
+// v1.3 takes recorded on an iPhone).
 
 const MIME_CANDIDATES = [
   'audio/mp4;codecs=mp4a.40.2', // AAC in MP4: iPhone Safari, plays everywhere
@@ -16,6 +18,8 @@ const MIME_CANDIDATES = [
   'audio/webm',
   'audio/ogg;codecs=opus',
 ];
+
+export const MIC_BOOST = 2; // +6 dB for the voice in Prompt takes
 
 export function pickMimeType() {
   if (typeof MediaRecorder === 'undefined') return null;
@@ -41,10 +45,10 @@ export class Engine extends EventTarget {
     this.stream = await navigator.mediaDevices.getUserMedia({
       audio: {
         channelCount: 1,
-        // Capture the sound as is: these "voice call" filters squash hums and whistles.
-        // With a backing playing on the speaker, echo cancellation keeps it out of the mic
-        // (it's already mixed in digitally).
-        echoCancellation: this.withBacking,
+        // Capture the sound as is, in Prompt mode too. iOS echo cancellation is built for
+        // calls: with music playing it gated and garbled sustained notes (crackly voice in
+        // v1.3 prompt takes), while plain takes without it were clean.
+        echoCancellation: false,
         noiseSuppression: false,
         autoGainControl: false,
       },
@@ -58,7 +62,17 @@ export class Engine extends EventTarget {
         src.connect(this.analyser);
         if (this.withBacking) {
           this.recDest = this.ctx.createMediaStreamDestination();
-          src.connect(this.recDest);
+          this.limiter = this.ctx.createDynamicsCompressor();
+          this.limiter.threshold.value = -9;
+          this.limiter.knee.value = 3;
+          this.limiter.ratio.value = 20;
+          this.limiter.attack.value = 0.002;
+          this.limiter.release.value = 0.12;
+          this.limiter.connect(this.recDest);
+          // The raw mic is quiet next to a synthesized band: lift the voice in the mix.
+          this.micGain = this.ctx.createGain();
+          this.micGain.gain.value = MIC_BOOST;
+          src.connect(this.micGain).connect(this.limiter);
           // You hear the backing late by the output latency and the mic hears you late by the
           // input latency, so delay the backing's copy in the recording to line up with you.
           const track = this.stream.getAudioTracks()[0];
@@ -67,7 +81,7 @@ export class Engine extends EventTarget {
           this.backingIn = this.ctx.createGain();
           this.backingDelay = this.ctx.createDelay(1);
           this.backingDelay.delayTime.value = Math.min(0.9, inLat + outLat);
-          this.backingIn.connect(this.backingDelay).connect(this.recDest);
+          this.backingIn.connect(this.backingDelay).connect(this.limiter);
         }
       } catch (e) {
         console.warn('Level meter unavailable', e); // recording still works without it

@@ -261,3 +261,19 @@ test('drums switch the click off by default; acoustic keeps it', async () => {
   assert.equal(new PromptPlayer(fakeAudioContext(), { v: 2, bpm: 100, keyPc: 0, progressionId: 'pop', genre: 'rock', feelId: 'rock-8' }).clickOn, false);
   assert.equal(new PromptPlayer(fakeAudioContext(), { v: 2, bpm: 100, keyPc: 0, progressionId: 'pop', genre: 'acoustic', feelId: 'folk' }).clickOn, true);
 });
+
+test('band level: Soft < Medium < Loud, Medium 12 dB under the v1.4 mix, changeable while playing', async () => {
+  const { BAND_LEVELS, bandLevel } = await import('../js/prompt.js');
+  const { PromptPlayer } = await import('../js/prompt-player.js');
+  assert.deepEqual(BAND_LEVELS.map((l) => l.id), ['soft', 'medium', 'loud']);
+  assert.ok(BAND_LEVELS[0].db < BAND_LEVELS[1].db && BAND_LEVELS[1].db < BAND_LEVELS[2].db);
+  assert.equal(bandLevel('nonsense').id, 'medium', 'unknown values fall back to Medium');
+  const p = { v: 2, bpm: 100, keyPc: 0, progressionId: 'pop', genre: 'acoustic', feelId: 'folk' };
+  const v14 = 0.9 * 2; // v1.4: 0.9 × Acoustic's genre gain
+  const medium = new PromptPlayer(fakeAudioContext(), p);
+  assert.ok(Math.abs(20 * Math.log10(medium.out.gain.value / v14) + 12) < 0.01, 'medium is -12 dB');
+  const soft = new PromptPlayer(fakeAudioContext(), p, { level: 'soft' });
+  assert.ok(soft.out.gain.value < medium.out.gain.value);
+  soft.setLevel('loud');
+  assert.ok(Math.abs(20 * Math.log10(soft.out.gain.value / v14) + 6) < 0.01, 'setLevel applies before playing');
+});

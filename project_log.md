@@ -122,6 +122,13 @@
 - Pushed 00753f0 (+ the v1.3.1 log commit) after the user said "Please continue" to the pending push question. Pages build finished in about 20 s. The live sw.js is v1.4.0 and instruments.js/prompt-player.js return 200.
 - Live checks: a browser on v1.3.1 showed the update bar → Update → v1.4.0 (only that cache left, the new modules cached). Previewed all 5 styles on the live site (Ballad waltz, Acoustic waltz, Pop syncopated, Rock palm-muted, Synth pop 16th arp): each played with no JS errors, and closing the card closed the audio.
 
+## 2026-10-18 22:18 · v1.4.1: crackly voice in Prompt takes + band too loud
+- Input: samples/tune-notebook-backup-from-iphone-2026-10-19.zip (26 takes: 15 plain, 11 prompt, all v1.3).
+- Findings: prompt takes −21…−26 dB RMS vs plain −28…−45 (band ≈ 17 dB over the voice). Clipping in the 8:20/8:24/8:31 PM takes (332/185/5 samples). echoCancellation was on only for prompt takes. Takes from 8:20 PM are 44.1 kHz (context rate) vs the 48 kHz mic. The spectrograms show beat-synchronous full-band lines in prompt takes; plain takes are clean. A burst counter was inconclusive (outdoor noise in plain takes too). Couldn't tell from the files whether Bluetooth earphones were used; asked the user.
+- Fix: echoCancellation false always; prompt mix = mic ×2 (+6 dB) + delayed backing → DynamicsCompressor limiter (−9 dB threshold, 20:1, 2 ms) → recDest. BAND_LEVELS soft/medium/loud = −18/−12/−6 dB vs v1.4, a Band line on the card (localStorage), PromptPlayer.setLevel(). Prompt AudioContext at sampleRate 48000, latencyHint 'balanced' (fallbacks if unsupported). Card hint about Bluetooth.
+- Verified in the app (no-cache server): band-only take −33.8 dB; −38 dB voice → about 6 dB above the band; 0.9 input → peak 0.78, 0 clipped; ec false; ctx 48 kHz. Tests 29/29 (+ band level test).
+- Diagnosis note + spectrograms saved in samples/ (git-ignored). v1.4.1. Committed locally, not pushed.
+
 ---
 ### User prompts
 1. (Build brief: see bottom of README.md for the full text.) Build the "Tune Notebook" PWA: record with tap tempo, Sa detection and a tanpura drone mixed in; IndexedDB storage; share/export; offline; deploy and iPhone install guide; test mic denied / phone-call interruption / very short clips.
@@ -144,3 +151,4 @@
 18. "Yes, push v1.3.1 to GitHub so the live app updates."
 19. "that is awesome, can you add more variety in sounds, may be a bass, maybe styles, like synth pop, rock, pop, etc, and more strum styles? or may be you can have two eight bar pattersn, the first is sparse in change, the second has a good introduction of one more chord etc, so that the 16 bars are a nice loop to compose with"
 20. "Please continue"
+21. "See backup file from iphone especially the latest ones. Somehow the audio of my voice is crackling. And the band sound probably needs to be a bit lower? (samples/backup from iphone filename)"
