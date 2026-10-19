@@ -118,6 +118,10 @@
 - **Dev gotcha found:** python's http.server sends no cache headers, so the browser reused a stale prompt.js after edits and gave a false result. Added tools/serve.py (Cache-Control: no-store), pointed launch.json/npm serve at it, noted in CLAUDE.md, and re-verified everything on a fresh origin.
 - Tests 28/28. v1.4.0. Committed locally, not pushed.
 
+## 2026-10-18 20:53 · Deployed v1.4.0
+- Pushed 00753f0 (+ the v1.3.1 log commit) after the user said "Please continue" to the pending push question. Pages build finished in about 20 s. The live sw.js is v1.4.0 and instruments.js/prompt-player.js return 200.
+- Live checks: a browser on v1.3.1 showed the update bar → Update → v1.4.0 (only that cache left, the new modules cached). Previewed all 5 styles on the live site (Ballad waltz, Acoustic waltz, Pop syncopated, Rock palm-muted, Synth pop 16th arp): each played with no JS errors, and closing the card closed the audio.
+
 ---
 ### User prompts
 1. (Build brief: see bottom of README.md for the full text.) Build the "Tune Notebook" PWA: record with tap tempo, Sa detection and a tanpura drone mixed in; IndexedDB storage; share/export; offline; deploy and iPhone install guide; test mic denied / phone-call interruption / very short clips.
@@ -139,3 +143,4 @@
 17. "from prompt listen when i click record over it, there should be a 2 bar count in and automatically starting to record."
 18. "Yes, push v1.3.1 to GitHub so the live app updates."
 19. "that is awesome, can you add more variety in sounds, may be a bass, maybe styles, like synth pop, rock, pop, etc, and more strum styles? or may be you can have two eight bar pattersn, the first is sparse in change, the second has a good introduction of one more chord etc, so that the 16 bars are a nice loop to compose with"
+20. "Please continue"
