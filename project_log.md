@@ -76,6 +76,11 @@
 - Live check: a browser on v1.1.1 got the "new version" toast. A synthetic take (100 BPM, Sa G) run through the live app's own analysis path gave 100 BPM / Sa G in the Web Worker (0 inline fallbacks). After activation only the v1.2.0 cache remains, with 16 files (offline analysis works).
 - Finding: the update toast hides after 9 s. A click after that falls through and the new version waits until the app is fully closed and reopened. Not a bug, but easy to miss. Option: keep the update bar until tapped.
 
+## 2026-10-18 18:12 · v1.2.1: update bar stays until tapped
+- Replaced the auto-hiding "new version" toast with a bar above Record (#updateBar). It stays until tapped and other toasts can't replace it. Disabled with "Updating…" after the tap; refuses while recording.
+- Tested locally: v1.2.1 running, sw.js temporarily set to v1.2.1-test → the bar appeared and was still visible after 14 s. A real tap reloaded into the new version and only the new cache remained. sw.js restored to v1.2.1.
+- Note: phones on v1.2.0 still see the old toast for this one update, since the bar code ships with it. From v1.2.1 on, the bar is used.
+
 ---
 ### User prompts
 1. (Build brief: see bottom of README.md for the full text.) Build the "Tune Notebook" PWA: record with tap tempo, Sa detection and a tanpura drone mixed in; IndexedDB storage; share/export; offline; deploy and iPhone install guide; test mic denied / phone-call interruption / very short clips.
@@ -91,3 +96,4 @@
 11. "on mac. when I run, I recoreded a tune, but when doe analyze run?"
 12. "Do this task here: Add in-app Analyse button for tempo and Sa"
 13. "Yes, push v1.2.0 to GitHub so the live app updates."
+14. "Yes, keep the update bar visible until I tap it, and push that."

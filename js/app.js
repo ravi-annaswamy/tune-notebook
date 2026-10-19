@@ -5,7 +5,7 @@ import { ANALYSIS_VERSION, SWARA, saMidiFor, sargamString } from './analyze.js';
 import { analyseAudio, analysisStats } from './analysis-client.js';
 import { midiToFreq } from './pitch.js';
 
-const APP_VERSION = '1.2.0';
+const APP_VERSION = '1.2.1';
 const MIN_DURATION = 1.0; // seconds; shorter clips are discarded
 const MIN_BYTES = 800;
 
@@ -20,6 +20,7 @@ const els = {
   versionInfo: $('#versionInfo'), seqDlg: $('#seqDlg'), seqInfo: $('#seqInfo'), seqShareBtn: $('#seqShareBtn'),
   seqSkipBtn: $('#seqSkipBtn'), seqDoneBtn: $('#seqDoneBtn'), micDlg: $('#micDlg'), micTitle: $('#micTitle'),
   micBody: $('#micBody'), installHint: $('#installHint'), hintClose: $('#hintClose'),
+  updateBar: $('#updateBar'), updateBtn: $('#updateBtn'),
 };
 
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -1042,15 +1043,19 @@ function setupServiceWorker() {
     location.reload();
   });
   navigator.serviceWorker.register('./sw.js').then((reg) => {
+    // A bar (not a toast) so it stays until tapped and other messages can't replace it.
+    let waitingWorker = null;
+    els.updateBtn.addEventListener('click', () => {
+      if (!waitingWorker) return;
+      if (state.mode !== 'idle') { toast('Finish recording first'); return; }
+      userAskedReload = true;
+      els.updateBtn.disabled = true;
+      els.updateBtn.textContent = 'Updating…';
+      waitingWorker.postMessage('skipWaiting');
+    });
     const offer = (worker) => {
-      toast('A new version is ready', {
-        action: 'Update',
-        onAction: () => {
-          if (state.mode !== 'idle') { toast('Finish recording first'); return; }
-          userAskedReload = true;
-          worker.postMessage('skipWaiting');
-        },
-      });
+      waitingWorker = worker;
+      els.updateBar.hidden = false;
     };
     if (reg.waiting && navigator.serviceWorker.controller) offer(reg.waiting);
     reg.addEventListener('updatefound', () => {

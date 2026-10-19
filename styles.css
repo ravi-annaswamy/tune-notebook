@@ -84,6 +84,21 @@ svg { width: 24px; height: 24px; fill: currentColor; }
 .record-btn:active { transform: scale(0.98); }
 .record-btn .dot { width: 28px; height: 28px; border-radius: 50%; background: #fff; }
 
+.update-bar {
+  margin-bottom: 12px;
+  padding: 8px 8px 8px 14px;
+  border-radius: 14px;
+  background: var(--surface);
+  border: 1px solid var(--tempo);
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  font-size: 15px;
+}
+.update-btn {
+  min-height: 44px; padding: 0 18px;
+  border: 0; border-radius: 10px;
+  background: var(--tempo); color: #fff; font-weight: 700;
+}
+
 .hint {
   margin-top: 12px;
   padding: 10px 6px 10px 14px;
