@@ -1,13 +1,14 @@
 import * as db from './db.js';
 import { Engine, pickMimeType } from './audio.js';
 import { makeZip, readZip } from './zip.js';
+import { defragmentMp4 } from './mp4.js';
 import { ANALYSIS_VERSION, SWARA, saMidiFor, sargamString } from './analyze.js';
 import { analyseAudio, analysisStats } from './analysis-client.js';
 import { midiToFreq } from './pitch.js';
 import { randomPrompt, rerollPart, describePrompt, normalizePrompt, buildPlan, partsOf, BAND_LEVELS, bandLevel } from './prompt.js';
 import { PromptPlayer } from './prompt-player.js';
 
-const APP_VERSION = '1.4.1';
+const APP_VERSION = '1.4.2';
 const MIN_DURATION = 1.0; // seconds; shorter clips are discarded
 const MIN_BYTES = 800;
 
@@ -76,6 +77,24 @@ function fileNameFor(t) {
   if (t.sa) parts.push(`Sa ${t.sa.name}`);
   if (t.bpm) parts.push(`${t.bpm}bpm`);
   return `${parts.join(' - ')}.${extFor(t.mimeType)}`;
+}
+
+// MediaRecorder's MP4 is fragmented, which Music/iTunes won't play. Shared and
+// exported copies are rebuilt as plain M4A; the stored take stays as recorded.
+function exportBytes(data, mime) {
+  const u8 = data instanceof Uint8Array ? data : new Uint8Array(data);
+  if (extFor(mime) !== 'm4a') return u8;
+  try { return defragmentMp4(u8); } catch (e) { console.warn('m4a remux failed, exporting as recorded', e); return u8; }
+}
+const exportCache = new WeakMap(); // blob -> exported bytes, so a second Share tap is instant
+async function exportFile(t, blob) {
+  const type = baseMime(blob.type || t.mimeType);
+  let data = exportCache.get(blob);
+  if (!data) {
+    data = exportBytes(await blob.arrayBuffer(), type);
+    exportCache.set(blob, data);
+  }
+  return new File([data], fileNameFor(t), { type });
 }
 
 function setAudioSession(type) {
@@ -513,8 +532,7 @@ async function shareOrDownload(file) {
 async function shareTune(t) {
   let blob = peekBlob(t.id);
   try { if (!blob) blob = await getBlob(t.id); } catch (e) { toast(`Can't load this tune: ${e.message}`); return; }
-  const file = new File([blob], fileNameFor(t), { type: baseMime(blob.type || t.mimeType) });
-  await shareOrDownload(file);
+  await shareOrDownload(await exportFile(t, blob));
 }
 
 // ---------- rename / delete ----------
@@ -1173,7 +1191,7 @@ async function buildZip() {
     let name = `${stamp} ${fileNameFor(t)}`;
     for (let i = 2; used.has(name); i++) name = `${stamp} (${i}) ${fileNameFor(t)}`;
     used.add(name);
-    entries.push({ name, data: new Uint8Array(r.data), date: d });
+    entries.push({ name, data: exportBytes(r.data, t.mimeType), date: d });
     manifest.push({ ...t, file: name });
   }
   const json = JSON.stringify({ app: 'tune-notebook', format: 1, exportedAt: new Date().toISOString(), tunes: manifest }, null, 2);
@@ -1221,7 +1239,7 @@ async function seqPrepare() {
   els.seqShareBtn.textContent = 'Loading…';
   try {
     const blob = await getBlob(t.id);
-    seq.file = new File([blob], fileNameFor(t), { type: baseMime(blob.type || t.mimeType) });
+    seq.file = await exportFile(t, blob);
     els.seqShareBtn.textContent = 'Share';
   } catch (e) {
     els.seqShareBtn.textContent = `Can't load (${e.message})`;

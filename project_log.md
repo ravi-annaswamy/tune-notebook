@@ -158,3 +158,15 @@
 20. "Please continue"
 21. "See backup file from iphone especially the latest ones. Somehow the audio of my voice is crackling. And the band sound probably needs to be a bit lower? (samples/backup from iphone filename)"
 22. "Yes, push v1.4.1 to GitHub so the live app updates."
+
+## 2026-11-12 17:36 — Why backup .m4a files don't play in Music/iTunes
+- All 52 m4a in backups/tune-notebook-backup-2026-11-13 are fragmented MP4 (ftyp iso5/hlsf/cmfc, 1 moov + ~110 moof/mdat pairs): MediaRecorder('audio/mp4') output saved as-is. Audio is fine (AAC 48 kHz stereo).
+- Apple's Music app expects a plain M4A (brand "M4A ", full sample table in moov). afinfo reports the files as mp4f rather than m4af.
+- Lossless fix verified: ffmpeg -i in.m4a -map 0:a -c copy -f ipod -movflags +faststart out.m4a → afinfo m4af, same duration (109.67 s).
+- App-side fix not done yet: export (or save) would need to defragment the blob before writing .m4a.
+
+## 2026-11-12 17:42 — v1.4.2: exports are plain M4A (not committed yet)
+- New js/mp4.js defragmentMp4(): reads samples out of moof/trun (tfhd/trex defaults), writes ftyp 'M4A ' + moov (stts/stsc/stsz/stco, 64-packet chunks, mvex dropped, edit-list priming kept with a real length) + one mdat. No re-encode. Returns input unchanged when not fragmented. Builds tables from arrays, not spread args (Safari's argument limit on long takes).
+- app.js: exportBytes()/exportFile() used by zip export, shareTune and one-by-one share. Stored blobs untouched. APP_VERSION and sw.js VERSION 1.4.2; mp4.js added to sw ASSETS.
+- Verified: all 52 takes in backups/…-2026-11-13 → afinfo m4af, ffmpeg PCM md5 identical to original, afconvert full frame count. Browser (port 8091): remuxed take decodes identically (109.673 s, peak −22.3 dB); importing samples/…from-iphone zip (26 takes) then Export gave 26 'M4A ' files, no moof, all decoded. npm test 32/32.
+- Side finding: Nov 11–12 takes are ~15–20 dB quieter (mean ≈ −50 dB) than Oct 18 / Nov 4 takes (−30 to −36 dB). This comes from the recordings, not the export. Not investigated.

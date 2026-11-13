@@ -69,9 +69,11 @@ js/instruments.js     synthesized band: clean/overdriven guitar, finger/synth ba
 tools/serve.py        local dev server with caching disabled (npm run serve)
 js/db.js              IndexedDB (tunes, audio, in-progress chunks)
 js/zip.js             zip writer/reader for backups
+js/mp4.js             fragmented MP4 → plain M4A remux (no re-encode) for shared/exported takes, so Music/iTunes plays them
 icons/                app icons (regenerate with tools/make_icons.py, needs Pillow)
 tools/analyze-tune.mjs  same analysis from the command line: node tools/analyze-tune.mjs file.m4a (macOS afconvert)
 tests/unit.test.mjs   node tests for pitch + zip  (npm test)
+tests/mp4.test.mjs    remux tests on a synthetic MediaRecorder-style fragmented file
 tests/analyze.test.mjs analysis tests: synthetic takes + your confirmed takes if samples/ has the backup
 tests/prompt.test.mjs  prompt tests: form rules, genres/feels, arrangement per style, count-in timing, tuning, old prompts
 .nojekyll             tells GitHub Pages to serve files as-is
@@ -140,6 +142,8 @@ gh repo create tune-notebook --public --source=. --push
 | Storage error while saving | The take stays in the recovery store and is restored on next launch. |
 
 ### What was tested
+
+**v1.4.2 (2026-11-12), exports play in Music/iTunes:** MediaRecorder saves takes as fragmented MP4 (empty sample table, one moof+mdat per second), which Apple's Music app won't play. The zip export, Share, and one-by-one Share now rebuild each take as a plain M4A (brand `M4A `, full sample table, one mdat) without re-encoding. Takes stored in the app are unchanged. On all 52 takes in the 2026-11-13 backup, each remuxed file is reported by `afinfo` as `m4af`, ffmpeg decodes it to the same samples as the original, and `afconvert` decodes it to the full frame count. In the browser, the export of a 26-take backup gave 26 `M4A ` files with no `moof`, and each decoded. `npm test` 32/32. Not yet tried on the iPhone or imported into Music.
 
 **v1.4.1 (2026-10-19), crackle fix:** diagnosed from your iPhone backup (see `samples/crackle-diagnosis-2026-10-19.md`): band ~17 dB over the voice, clipping in 3 takes, iOS echo cancellation on, 44.1 kHz resampling. After the fix, in the app: the band alone in a take is −33.8 dB (was −21 to −24). A voice at your measured level sits about 6 dB above the band. A very loud input peaks at 0.78 with 0 clipped samples. Echo cancellation is off and the context runs at 48 kHz. `npm test` 29/29. Not yet re-recorded on the iPhone.
 
