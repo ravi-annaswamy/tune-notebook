@@ -8,7 +8,7 @@ import { midiToFreq } from './pitch.js';
 import { randomPrompt, rerollPart, describePrompt, normalizePrompt, buildPlan, partsOf, BAND_LEVELS, bandLevel } from './prompt.js';
 import { PromptPlayer } from './prompt-player.js';
 
-const APP_VERSION = '1.4.3';
+const APP_VERSION = '1.4.4';
 const MIN_DURATION = 1.0; // seconds; shorter clips are discarded
 const MIN_BYTES = 800;
 
@@ -919,7 +919,7 @@ function showPromptPosition(pos) {
   else if (pos.section) {
     els.rpSection.textContent = pos.section === 'Loop'
       ? `Bar ${pos.barInSection + 1} of ${pos.sectionLen}`
-      : `Part ${pos.section} · bar ${pos.barInSection + 1} of ${pos.sectionLen}${pos.section === 'B' ? ' · moves more' : ''}`;
+      : `Part ${pos.section} · bar ${pos.barInSection + 1} of ${pos.sectionLen}${pos.section === 'B' ? ' · new beat, sparser chords' : ''}`;
   }
 }
 
@@ -1032,7 +1032,7 @@ function renderPromptCard() {
   }
   setPromptLine(els.prFeelV, `${d.meterName} · ${d.feelName}`);
   renderBandLine();
-  setPromptLine(els.prFormV, d.formName, d.form === 'ab' ? 'A holds each chord 2 bars; B moves every bar and adds one chord' : 'the progression on repeat');
+  setPromptLine(els.prFormV, d.formName, d.form === 'ab' ? 'A holds each chord 2 bars; B moves every bar, adds one chord, changes the beat and thins the comping' : 'the progression on repeat');
 }
 
 // How loud the band is in your ear and in the take; remembered between sessions.

@@ -49,32 +49,34 @@ export const GENRES = [
   { id: 'ballad', name: 'Ballad', parts: 'guitar, pad, bass', bpm: [60, 86], click: true, gain: 1.25 },
 ];
 
-// A feel bundles the patterns every part plays for one genre and meter.
+// A feel bundles the patterns every part plays for one genre and meter. Section B has
+// its own groove: the drum pattern's DRUMS_B partner, and a sparser comping pattern (b),
+// since B already changes chord every bar.
 export const FEELS = [
-  { id: 'ring', genre: 'acoustic', meter: 4, name: 'Let it ring', guitar: 'ring' },
-  { id: 'steady', genre: 'acoustic', meter: 4, name: 'Steady strum', guitar: 'quarter' },
-  { id: 'folk', genre: 'acoustic', meter: 4, name: 'Folk strum', guitar: 'folk' },
-  { id: 'synco', genre: 'acoustic', meter: 4, name: 'Syncopated strum', guitar: 'synco' },
-  { id: 'island', genre: 'acoustic', meter: 4, name: 'Island offbeat', guitar: 'island', drums: 'shaker' },
-  { id: 'picked', genre: 'acoustic', meter: 4, name: 'Fingerpicked', guitar: 'arp' },
-  { id: 'travis', genre: 'acoustic', meter: 4, name: 'Travis picking', guitar: 'travis' },
-  { id: 'waltz', genre: 'acoustic', meter: 3, name: 'Waltz', guitar: 'waltz' },
-  { id: 'steady3', genre: 'acoustic', meter: 3, name: 'Steady strum', guitar: 'quarter3' },
-  { id: 'folk3', genre: 'acoustic', meter: 3, name: 'Folk 3/4 strum', guitar: 'folk3' },
-  { id: 'picked3', genre: 'acoustic', meter: 3, name: 'Fingerpicked', guitar: 'arp3' },
-  { id: 'pop-synco', genre: 'pop', meter: 4, name: 'Syncopated pop', guitar: 'synco', bass: 'pop', drums: 'pop' },
-  { id: 'pop-drive', genre: 'pop', meter: 4, name: 'Driving 8ths', guitar: 'folk', bass: 'eighths', drums: 'pop8' },
-  { id: 'pop-half', genre: 'pop', meter: 4, name: 'Half-time', guitar: 'ring', bass: 'roots', drums: 'halftime' },
-  { id: 'pop-skank', genre: 'pop', meter: 4, name: 'Offbeat skank', guitar: 'island', bass: 'rootfive', drums: 'pop' },
-  { id: 'rock-8', genre: 'rock', meter: 4, name: 'Palm-muted 8ths', guitar: 'rock8', bass: 'eighths', drums: 'rock' },
-  { id: 'rock-open', genre: 'rock', meter: 4, name: 'Big open chords', guitar: 'rockring', bass: 'roots', drums: 'rock' },
-  { id: 'rock-gallop', genre: 'rock', meter: 4, name: 'Gallop', guitar: 'gallop', bass: 'gallop', drums: 'rock' },
-  { id: 'synth-16', genre: 'synthpop', meter: 4, name: '16th arpeggio', arp: 'up16', pad: true, bass: 'synth8', drums: 'synth' },
-  { id: 'synth-floor', genre: 'synthpop', meter: 4, name: 'Four on the floor', arp: 'pulse8', pad: true, bass: 'synth8', drums: 'floor' },
-  { id: 'synth-dream', genre: 'synthpop', meter: 4, name: 'Dreamy', arp: 'updown8', pad: true, bass: 'whole', drums: 'lite' },
-  { id: 'ballad-pick', genre: 'ballad', meter: 4, name: 'Fingerpicked', guitar: 'arp', pad: true, bass: 'whole' },
-  { id: 'ballad-ring', genre: 'ballad', meter: 4, name: 'Let it ring', guitar: 'ring', pad: true, bass: 'roots' },
-  { id: 'ballad-waltz', genre: 'ballad', meter: 3, name: 'Waltz', guitar: 'arp3', pad: true, bass: 'whole' },
+  { id: 'ring', genre: 'acoustic', meter: 4, name: 'Let it ring', guitar: 'ring', b: { guitar: 'bassring' } },
+  { id: 'steady', genre: 'acoustic', meter: 4, name: 'Steady strum', guitar: 'quarter', b: { guitar: 'half' } },
+  { id: 'folk', genre: 'acoustic', meter: 4, name: 'Folk strum', guitar: 'folk', b: { guitar: 'half' } },
+  { id: 'synco', genre: 'acoustic', meter: 4, name: 'Syncopated strum', guitar: 'synco', b: { guitar: 'push' } },
+  { id: 'island', genre: 'acoustic', meter: 4, name: 'Island offbeat', guitar: 'island', drums: 'shaker', b: { guitar: 'island2' } },
+  { id: 'picked', genre: 'acoustic', meter: 4, name: 'Fingerpicked', guitar: 'arp', b: { guitar: 'arpq' } },
+  { id: 'travis', genre: 'acoustic', meter: 4, name: 'Travis picking', guitar: 'travis', b: { guitar: 'trav2' } },
+  { id: 'waltz', genre: 'acoustic', meter: 3, name: 'Waltz', guitar: 'waltz', b: { guitar: 'boom3' } },
+  { id: 'steady3', genre: 'acoustic', meter: 3, name: 'Steady strum', guitar: 'quarter3', b: { guitar: 'ring' } },
+  { id: 'folk3', genre: 'acoustic', meter: 3, name: 'Folk 3/4 strum', guitar: 'folk3', b: { guitar: 'waltz' } },
+  { id: 'picked3', genre: 'acoustic', meter: 3, name: 'Fingerpicked', guitar: 'arp3', b: { guitar: 'arp3q' } },
+  { id: 'pop-synco', genre: 'pop', meter: 4, name: 'Syncopated pop', guitar: 'synco', bass: 'pop', drums: 'pop', b: { guitar: 'push' } },
+  { id: 'pop-drive', genre: 'pop', meter: 4, name: 'Driving 8ths', guitar: 'folk', bass: 'eighths', drums: 'pop8', b: { guitar: 'half' } },
+  { id: 'pop-half', genre: 'pop', meter: 4, name: 'Half-time', guitar: 'ring', bass: 'roots', drums: 'halftime', b: { guitar: 'bassring' } },
+  { id: 'pop-skank', genre: 'pop', meter: 4, name: 'Offbeat skank', guitar: 'island', bass: 'rootfive', drums: 'pop', b: { guitar: 'island2' } },
+  { id: 'rock-8', genre: 'rock', meter: 4, name: 'Palm-muted 8ths', guitar: 'rock8', bass: 'eighths', drums: 'rock', b: { guitar: 'rockring' } },
+  { id: 'rock-open', genre: 'rock', meter: 4, name: 'Big open chords', guitar: 'rockring', bass: 'roots', drums: 'rock', b: { guitar: 'ring' } },
+  { id: 'rock-gallop', genre: 'rock', meter: 4, name: 'Gallop', guitar: 'gallop', bass: 'gallop', drums: 'rock', b: { guitar: 'rockq' } },
+  { id: 'synth-16', genre: 'synthpop', meter: 4, name: '16th arpeggio', arp: 'up16', pad: true, bass: 'synth8', drums: 'synth', b: { arp: 'up8' } },
+  { id: 'synth-floor', genre: 'synthpop', meter: 4, name: 'Four on the floor', arp: 'pulse8', pad: true, bass: 'synth8', drums: 'floor', b: { arp: 'pulse4' } },
+  { id: 'synth-dream', genre: 'synthpop', meter: 4, name: 'Dreamy', arp: 'updown8', pad: true, bass: 'whole', drums: 'lite', b: { arp: 'updown4' } },
+  { id: 'ballad-pick', genre: 'ballad', meter: 4, name: 'Fingerpicked', guitar: 'arp', pad: true, bass: 'whole', b: { guitar: 'arpq' } },
+  { id: 'ballad-ring', genre: 'ballad', meter: 4, name: 'Let it ring', guitar: 'ring', pad: true, bass: 'roots', b: { guitar: 'bassring' } },
+  { id: 'ballad-waltz', genre: 'ballad', meter: 3, name: 'Waltz', guitar: 'arp3', pad: true, bass: 'whole', b: { guitar: 'arp3q' } },
 ];
 
 // Guitar patterns: at = beat within the bar; strings low→high ('all', 'upper', 'top', 'bass',
@@ -111,6 +113,16 @@ export const GUITAR = {
     { at: b + 0.5, type: 'strum', dir: 'D', strings: 'all', vel: 0.7, mute: 0.08 },
     { at: b + 0.75, type: 'strum', dir: 'D', strings: 'all', vel: 0.7, mute: 0.08 },
   ]),
+  // Sparser partners for section B.
+  bassring: [{ at: 0, type: 'pick', strings: 'bass', vel: 1 }, { at: 1, type: 'strum', dir: 'D', strings: 'upper', vel: 0.65 }],
+  half: [{ at: 0, type: 'strum', dir: 'D', strings: 'all', vel: 1 }, { at: 2, type: 'strum', dir: 'D', strings: 'upper', vel: 0.7 }],
+  push: [{ at: 0, type: 'strum', dir: 'D', strings: 'all', vel: 1 }, { at: 1.5, type: 'strum', dir: 'D', strings: 'upper', vel: 0.75 }],
+  island2: [1.5, 3.5].map((at) => ({ at, type: 'strum', dir: 'U', strings: 'upper', vel: 0.75, mute: 0.12 })),
+  arpq: pick8([[0, 'bass'], [1, 3], [2, 'alt'], [3, 4]]),
+  trav2: pick8([[0, 'bass', 0.9], [1.5, 3, 0.55], [2, 'alt', 0.8], [3.5, 4, 0.55]]),
+  boom3: [{ at: 0, type: 'pick', strings: 'bass', vel: 1 }, { at: 1, type: 'strum', dir: 'D', strings: 'upper', vel: 0.6 }],
+  arp3q: pick8([[0, 'bass', 1], [1, 3], [2, 4]]),
+  rockq: [0, 1, 2, 3].map((at) => ({ at, type: 'strum', dir: 'D', strings: 'all', vel: at ? 0.8 : 0.95, mute: 0.25 })),
 };
 
 // Bass: n = R root, 5 fifth, 8 octave, A approach (a semitone below the next bar's root). dur in beats.
@@ -136,11 +148,27 @@ export const DRUMS = {
   shaker: { shaker: 'x.xxx.xxx.xxx.xx' },
 };
 
+// Section B's groove for each drum pattern: same kit, a different rhythm.
+export const DRUMS_B = {
+  rock: { kick: 'x.x...x.x.x...x.', snare: '....x.......x...', ohat: 'x...x...x...x...' }, // pushier kick, riding open hats
+  pop: { kick: 'x..x..x...x.....', snare: '....x.......x..x', hat: 'xxxxxxxxxxxxxxxx' },
+  pop8: { kick: 'x...x...x...x...', snare: '....x.......x...', hat: 'x...x...x...x...', ohat: '..x...x...x...x.' }, // four on the floor
+  halftime: { kick: 'x.......x.x.....', snare: '....x.......x...', hat: 'x.x.x.x.x.x.x.x.' }, // full backbeat
+  synth: { kick: 'x...x...x...x...', clap: '....x.......x...', hat: 'xxxxxxxxxxxxxxxx' },
+  floor: { kick: 'x.x...x...x..x..', clap: '....x.......x...', hat: 'x.xxx.xxx.xxx.xx' }, // broken beat
+  lite: { kick: 'x.....x...x.....', clap: '....x.......x...', hat: 'x.x.x.x.x.x.x.x.' },
+  shaker: { shaker: 'xxxxxxxxxxxxxxxx', clap: '....x.......x...' },
+};
+
 // Arpeggio: one tone index (0 root, 1 third, 2 fifth, 3 octave) per step.
 export const ARP = {
   up16: { step: 0.25, tones: [0, 1, 2, 3] },
   pulse8: { step: 0.5, tones: [0, 0, 3, 0, 0, 3, 0, 3] },
   updown8: { step: 0.5, tones: [0, 1, 2, 3, 2, 1, 0, 1] },
+  // Sparser partners for section B.
+  up8: { step: 0.5, tones: [0, 1, 2, 3] },
+  pulse4: { step: 1, tones: [0, 3, 0, 3] },
+  updown4: { step: 1, tones: [0, 1, 2, 1] },
 };
 
 const pick = (arr, rand) => arr[Math.floor(rand() * arr.length)];
@@ -324,7 +352,10 @@ export function buildPlan(params) {
     bass: feel.bass ? BASS[feel.bass](p.meter) : null,
     bassKind: genre.bassKind || 'finger',
     drums: feel.drums ? DRUMS[feel.drums] : null,
+    drumsB: feel.drums ? DRUMS_B[feel.drums] : null,
+    guitarB: feel.b?.guitar ? GUITAR[feel.b.guitar] : null,
     arp: feel.arp ? ARP[feel.arp] : null,
+    arpB: feel.b?.arp ? ARP[feel.b.arp] : null,
     pad: !!feel.pad,
     click: genre.click,
   };
@@ -346,12 +377,13 @@ export function eventsForBeat(plan, b) {
   const prev = bars[(idx - 1 + bars.length) % bars.length];
   const { chord } = bar;
   const ev = [{ inst: 'click', at: 0, accent: beat === 0 }];
+  const inB = bar.section === 'B';
   const changed = beat === 0 && (barNo === 0 || prev.chord.key !== chord.key);
 
   if (plan.guitar) {
     if (changed) ev.push({ inst: 'damp', at: 0 });
     const voicing = voiceChord(chord.rootPc, plan.power ? '5' : chord.quality);
-    for (const e of plan.guitar) {
+    for (const e of (inB && plan.guitarB) || plan.guitar) {
       if (Math.floor(e.at) !== beat) continue;
       const strings = stringsFor(e.strings, voicing);
       const order = e.dir === 'U' ? [...strings].reverse() : strings;
@@ -384,18 +416,19 @@ export function eventsForBeat(plan, b) {
   }
 
   if (plan.arp) {
+    const arp = (inB && plan.arpB) || plan.arp;
     const tones = arpTones(chord.rootPc, chord.quality);
-    const perBeat = Math.round(1 / plan.arp.step);
+    const perBeat = Math.round(1 / arp.step);
     for (let k = 0; k < perBeat; k++) {
       const stepNo = beat * perBeat + k;
-      const tone = tones[plan.arp.tones[stepNo % plan.arp.tones.length]];
-      ev.push({ inst: 'arp', at: k * plan.arp.step, midi: tone, dur: plan.arp.step * 0.9, vel: k === 0 ? 0.9 : 0.65 });
+      const tone = tones[arp.tones[stepNo % arp.tones.length]];
+      ev.push({ inst: 'arp', at: k * arp.step, midi: tone, dur: arp.step * 0.9, vel: k === 0 ? 0.9 : 0.65 });
     }
   }
 
   if (plan.drums) {
-    const d = plan.drums;
-    const real = !!(d.kick || d.snare || d.clap);
+    const real = !!(plan.drums.kick || plan.drums.snare || plan.drums.clap); // A decides crashes and fills
+    const d = (inB && plan.drumsB) || plan.drums;
     const lastBar = bar.barInSection === bar.sectionLen - 1 && (plan.form === 'ab' || bar.sectionLen >= 4);
     const fill = real && lastBar && beat === meter - 1;
     if (real && bar.barInSection === 0 && beat === 0) ev.push({ inst: 'crash', at: 0, vel: 0.8 });
@@ -413,9 +446,7 @@ export function eventsForBeat(plan, b) {
       if (on('clap')) ev.push({ inst: 'clap', at, vel: 0.85 });
       if (on('ohat')) ev.push({ inst: 'ohat', at, vel: 0.55 });
       if (on('shaker')) ev.push({ inst: 'shaker', at, vel: k === 0 ? 0.8 : 0.5 });
-      if (on('hat')) ev.push({ inst: 'hat', at, vel: k === 0 ? 0.7 : 0.5 });
-      // Section B lifts: 8th-note hats become 16ths.
-      else if (d.hat && bar.section === 'B' && k % 2 === 1 && !on('ohat')) ev.push({ inst: 'hat', at, vel: 0.35 });
+      if (on('hat')) ev.push({ inst: 'hat', at, vel: k === 0 ? 0.7 : k === 2 ? 0.5 : 0.35 });
     }
   }
   return ev;

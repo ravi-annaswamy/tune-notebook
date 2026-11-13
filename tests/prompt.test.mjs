@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   randomPrompt, rerollPart, describePrompt, normalizePrompt, buildPlan, eventsForBeat, voiceChord, pluckSamples,
-  stringsFor, bassRoot, padVoicing, PROGRESSIONS, GENRES, FEELS, GUITAR, BASS, DRUMS, ARP,
+  stringsFor, bassRoot, padVoicing, PROGRESSIONS, GENRES, FEELS, GUITAR, BASS, DRUMS, DRUMS_B, ARP,
 } from '../js/prompt.js';
 import { yin, freqToMidi } from '../js/pitch.js';
 
@@ -31,6 +31,26 @@ test('every feel refers to patterns that exist and fit its meter', () => {
     }
     if (f.bass) for (const e of BASS[f.bass](f.meter)) assert.ok(e.at < f.meter && e.at + e.dur <= f.meter + 0.01, `${f.id} bass`);
     if (f.drums) { assert.ok(DRUMS[f.drums]); assert.equal(f.meter, 4, 'drum patterns are 4/4'); }
+    if (f.drums) {
+      const b = DRUMS_B[f.drums];
+      assert.ok(b, `${f.id}: B drums`);
+      for (const lane of Object.values(b)) assert.match(lane, /^[x.]{16}$/);
+      assert.notDeepEqual(b, DRUMS[f.drums], `${f.id}: B drums differ from A`);
+    }
+    // B changes chord every bar, so its comping is a different, sparser pattern.
+    if (f.guitar) {
+      const a = GUITAR[f.guitar];
+      const b = GUITAR[f.b?.guitar];
+      assert.ok(b, `${f.id}: B guitar`);
+      assert.notDeepEqual(b, a, `${f.id}: B guitar differs`);
+      for (const e of b) assert.ok(e.at >= 0 && e.at < f.meter, `${f.id} B guitar at ${e.at}`);
+      // One strum a bar can't thin out; its partner may split that strum in two.
+      assert.ok(b.length < a.length || (a.length === 1 && b.length <= 2), `${f.id}: B guitar ${b.length} hits vs A ${a.length}`);
+    }
+    if (f.arp) {
+      assert.ok(ARP[f.b?.arp], `${f.id}: B arpeggio`);
+      assert.ok(ARP[f.b.arp].step > ARP[f.arp].step, `${f.id}: B arpeggio is slower`);
+    }
     if (f.arp) assert.ok(ARP[f.arp]);
     assert.ok(f.guitar || f.pad || f.arp, `${f.id} has something harmonic`);
   }
@@ -110,7 +130,7 @@ function allEvents(params, bars = 16) {
   return { plan, out };
 }
 
-test('rock: power chords, bass on the roots, crash at each section, fills, busier hats in B', () => {
+test('rock: power chords, bass on the roots, crash at each section, fills, its own beat in B', () => {
   const { plan, out } = allEvents({ v: 2, bpm: 120, keyPc: 4, progressionId: 'pop', genre: 'rock', feelId: 'rock-8', form: 'ab', colour: 0 });
   const g = out.filter((e) => e.inst === 'guitar' && e.bar === 0 && e.beat === 0);
   assert.deepEqual(g.map((e) => e.midi), voiceChord(4, '5'), 'E5 power chord on beat 1');
@@ -123,8 +143,16 @@ test('rock: power chords, bass on the roots, crash at each section, fills, busie
   assert.equal(fillSnares(7), 4);
   assert.equal(fillSnares(15), 4);
   assert.equal(fillSnares(3), 1, 'no fill mid-section (just the backbeat)');
-  const hats = (bar) => out.filter((e) => e.inst === 'hat' && e.bar === bar).length;
-  assert.ok(hats(9) > hats(1), `B hats ${hats(9)} > A hats ${hats(1)}`);
+  const lane = (inst, bar) => out.filter((e) => e.inst === inst && e.bar === bar).map((e) => (e.beat - bar * 4) * 4);
+  assert.deepEqual(lane('kick', 1), [0, 8, 10], 'A kick');
+  assert.deepEqual(lane('kick', 9), [0, 2, 6, 8, 10, 14], 'B kick pushes');
+  assert.deepEqual(lane('kick', 1), lane('kick', 5), 'A stays the same through the section');
+  assert.equal(lane('hat', 1).length, 8);
+  assert.deepEqual([lane('hat', 9).length, lane('ohat', 9)], [0, [0, 4, 8, 12]], 'B rides open hats instead of closed');
+  assert.deepEqual(lane('snare', 9), [4, 12], 'backbeat stays');
+  const strums = (bar) => [...new Set(out.filter((e) => e.inst === 'guitar' && e.bar === bar).map((e) => e.beat - bar * 4))];
+  assert.equal(strums(1).length, 8, 'A: palm-muted 8ths');
+  assert.deepEqual(strums(9), [0, 2.5, 3.5], 'B: three open hits a bar');
   assert.ok(out.some((e) => e.inst === 'kick' && e.beat === 0));
 });
 
@@ -136,6 +164,7 @@ test('synth pop: pad holds through each chord, 16th arpeggio, synth bass', () =>
   assert.deepEqual(pads[0].midis, padVoicing(9, 'm'));
   assert.equal(pads.reduce((s, p) => s + p.dur, 0), 64, 'pads cover all 16 bars');
   assert.equal(out.filter((e) => e.inst === 'arp' && e.bar === 0).length, 16);
+  assert.equal(out.filter((e) => e.inst === 'arp' && e.bar === 8).length, 8, 'B: 8th-note arpeggio');
   assert.ok(!out.some((e) => e.inst === 'guitar'));
 });
 
@@ -146,6 +175,10 @@ test('acoustic without drums has no drum events; island feel adds a shaker', () 
   assert.ok(island.some((e) => e.inst === 'shaker'));
   assert.ok(!island.some((e) => e.inst === 'crash'), 'a shaker gets no crash');
   assert.ok(island.filter((e) => e.inst === 'guitar').every((e) => e.mute > 0), 'offbeat chops are muted');
+  assert.ok(!island.some((e) => e.inst === 'clap' && e.bar < 8) && island.some((e) => e.inst === 'clap' && e.bar >= 8), 'claps join in B only');
+  const strums = (bar) => plain.filter((e) => e.inst === 'guitar' && e.bar === bar).map((e) => e.beat - bar * 4);
+  assert.deepEqual([...new Set(strums(0))], [0, 1, 1.5, 2.5, 3, 3.5], 'A: folk strum');
+  assert.deepEqual([...new Set(strums(8))], [0, 2], 'B: two strums a bar');
 });
 
 test('guitar voicings: real shapes, right notes, playable range', () => {

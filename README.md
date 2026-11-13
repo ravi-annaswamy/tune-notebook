@@ -27,7 +27,7 @@ Plain HTML/CSS/JS, no build step, no backend. Hosted on GitHub Pages, installed 
   - **Synth pop:** 16th arpeggio, four on the floor, dreamy.
   - **Ballad:** picked, ring, waltz.
 - **Form**:
-  - **16 bars: A + B** (default). **A** is sparse: each chord rings for 2 bars. **B** moves a chord per bar and brings in **one new colour chord** (ii, iii, iv, ♭VI, ♭VII…, outlined on screen), then turns around back to the top. The drums add a crash at each section, a fill at the end of each section, and busier hats in B.
+  - **16 bars: A + B** (default). **A** is sparse: each chord rings for 2 bars. **B** moves a chord per bar, changes the beat (a different drum pattern), thins out the strumming or arpeggio so the faster chords have room, and brings in **one new colour chord** (ii, iii, iv, ♭VI, ♭VII…, outlined on screen), then turns around back to the top. The drums add a crash at each section, a fill at the end of each section, and busier hats in B.
   - **Loop:** the old 4-bar loop.
 - **Shuffle** keeps your style and changes everything else. A new prompt starts in the style you used last. **Listen** previews it; changes apply while it plays.
 - **Record over it**: a **2-bar count-in** of clicks (beat 1 accented, a big 1-2-3-4 on screen), then the band comes in on bar 1 and **recording starts by itself**. **Cancel** during the count-in saves nothing. While recording you see all 16 bars as a chord map with the current bar lit, "Part A · bar 3 of 8", and toggles for **Click / Drums / Bass / Chords** (the click starts off when there are drums; mutes are recorded too).
@@ -143,6 +143,8 @@ gh repo create tune-notebook --public --source=. --push
 
 ### What was tested
 
+**v1.4.4 (2026-11-12), section B gets its own groove:** B used to change only the chords (plus doubled hi-hats). Now it also changes the rhythm, in every feel. Drums: every drum pattern has a B partner in `DRUMS_B` (js/prompt.js); for example Rock pushes the kick and rides open hats, Driving 8ths goes four-on-the-floor, Half-time opens into a full backbeat, and the Island shaker goes to 16ths with claps. Comping: because B already changes chord every bar, each feel's strum, picking or arpeggio pattern switches to a sparser partner (`b` on the feel), such as Folk strum 6 hits a bar → 2, Palm-muted 8ths 8 → 3, Fingerpicked 8 → 4, 16th arpeggio 16 → 8. "Let it ring" is already one strum a bar, so its B splits that strum into a bass note and a soft strum instead. Crashes, fills and bass lines are unchanged. Off-beat 16th hats are a little softer, which also affects part A of Driving 8ths and 16th arpeggio. `npm test` 33/33; in the browser, drums in bar 2 and bar 10 differ for all 11 drum feels, comping thins out in all 24 feels, and previews played through into B with no errors. Not yet heard on the iPhone.
+
 **v1.4.3 (2026-11-12), Chrome exports play in Music too:** Chrome's MediaRecorder leaves the required SLConfigDescriptor out of the AAC header (esds) and stamps packets with clock-based durations (1008/1023/1024). The remux now adds the SLConfig and gives every AAC-LC packet 1024 samples. You confirmed that a Mac (Chrome) take patched this way plays in Music. The iPhone takes convert byte-for-byte as in v1.4.2. `npm test` 33/33.
 
 **v1.4.2 (2026-11-12), exports play in Music/iTunes:** MediaRecorder saves takes as fragmented MP4 (empty sample table, one moof+mdat per second), which Apple's Music app won't play. The zip export, Share, and one-by-one Share now rebuild each take as a plain M4A (brand `M4A `, full sample table, one mdat) without re-encoding. Takes stored in the app are unchanged. On all 52 takes in the 2026-11-13 backup, each remuxed file is reported by `afinfo` as `m4af`, ffmpeg decodes it to the same samples as the original, and `afconvert` decodes it to the full frame count. In the browser, the export of a 26-take backup gave 26 `M4A ` files with no `moof`, and each decoded. `npm test` 32/32. Not yet tried on the iPhone or imported into Music.
@@ -151,7 +153,7 @@ gh repo create tune-notebook --public --source=. --push
 
 **v1.4.0 (2026-10-18), styles, sounds and 16-bar form:** `npm test` passes 28/28:
 - Across all 14 progressions × 8 colour choices: A changes chord at most 4 times, B moves more and contains the marked new chord, and bar 16 is the turnaround.
-- Every feel's patterns exist and fit its meter. In Rock: power chords, bass on the roots, a crash at bars 1 and 9, 4-hit snare fills in bars 8 and 16, and busier hats in B. In Synth pop: pads cover all 16 bars and the arpeggio plays 16 notes a bar.
+- Every feel's patterns exist and fit its meter. In Rock: power chords, bass on the roots, a crash at bars 1 and 9, 4-hit snare fills in bars 8 and 16, and (since v1.4.4) its own beat in B. In Synth pop: pads cover all 16 bars and the arpeggio plays 16 notes a bar.
 - Plucked strings from E1 to E5 are in tune within 5 cents for 200 random plucks.
 - Count-in: only 8 clicks, then kick + bass + guitar + crash together on bar 1.
 - v1.3 prompts replay unchanged.

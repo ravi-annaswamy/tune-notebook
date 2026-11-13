@@ -179,3 +179,17 @@
 - Patched copy of the user's file for a Music test: backups/Nov 12, 5-45 PM - Sa C - 99bpm (fixed).m4a (PCM identical). Waiting on the user to confirm it plays in Music before commit/deploy.
 - 2026-11-12 17:52 User confirmed the (fixed) copy plays in Music. Committing and pushing v1.4.3.
 - 2026-11-12 17:53 v1.4.3 live (800224c). On the live site, a fresh Chrome recording run through the shipped mp4.js gave an 'M4A ' file with SLConfig that decodes.
+
+## 2026-11-12 17:58 — v1.4.4 (not committed): section B changes the rhythm
+- User: "for B section can you please change the drum/rhythm pattern (not just progression)".
+- js/prompt.js: new DRUMS_B (a B partner per drum pattern); FEELS without drums get b.guitar (a different strum/pick pattern in B). buildPlan exposes drumsB/guitarB; eventsForBeat picks them when bar.section === 'B'. Removed the old "8th hats → 16ths in B" lift; off-beat 16th hats now 0.35 vel (also softens A of pop8/synth). Crash/fill logic still keyed off the A kit.
+- app.js: form line says B "changes the beat"; recording panel shows "new beat" in B. APP_VERSION/sw VERSION 1.4.4.
+- Tests: feel table checks every feel has a differing B groove; rock test checks A/B kick lanes and open-hat ride; acoustic test checks B strum switch and island claps. npm test 33/33.
+- Browser (8091): offline render of drums bar 2 vs bar 10 differs for all 11 drum feels, peaks 0.36–0.54; Prompt preview (3/4 waltz, 71 BPM) ran ~38 s into B with no console errors. Not committed or pushed.
+
+## 2026-11-12 18:01 — v1.4.4 continued (not committed): sparser comping in B
+- User: "the strum/comping pattern should also change in the B section, if it has more chord changes, it should be a sparser pattern". (My first pass had made the drumless feels busier in B; reversed.)
+- js/prompt.js: every feel now has b.guitar or b.arp, sparser than A. New GUITAR patterns bassring, half, push, island2, arpq, trav2, boom3, arp3q, rockq; new ARP up8, pulse4, updown4. plan.arpB added; eventsForBeat uses it in B. Drums B (DRUMS_B) kept from the earlier pass. Bass unchanged.
+- Hits per bar A → B: folk 6→2, synco 5→2, steady 4→2, island 4→2, picked 8→4, travis 7→4, waltz 3→2, steady3 3→1, folk3 5→3, picked3 6→3, rock-8 8→3, rock-open 3→1, gallop 12→4, synth 16→8 / 8→4 / 8→4, ballad pick 8→4, ballad waltz 6→3. Ring feels (ring, pop-half, ballad-ring) are 1→2: bass note on 1, soft upper strum on 2 (one strum can't get sparser).
+- Tests assert B comping differs and has fewer hits (ring exception), plus rock/synth/folk specifics. npm test 33/33. Browser 8091: Synth pop 110 BPM preview ran 40 s (through B, looped) with no console errors.
+- 2026-11-12 18:03 User reported the fresh iPhone export of the 5:22 PM take wouldn't play in Music, then confirmed it does. The file is byte-identical to the v1.4.3 remux output; no change made.
