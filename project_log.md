@@ -178,3 +178,4 @@
 - js/mp4.js fixSampleEntry(): adds SLConfig when missing; for AAC-LC sets every packet duration to 1024 (960 if frameLengthFlag). Safari takes unaffected: all 52 remuxed files byte-identical to before. New Chrome-shaped unit test; npm test 33/33.
 - Patched copy of the user's file for a Music test: backups/Nov 12, 5-45 PM - Sa C - 99bpm (fixed).m4a (PCM identical). Waiting on the user to confirm it plays in Music before commit/deploy.
 - 2026-11-12 17:52 User confirmed the (fixed) copy plays in Music. Committing and pushing v1.4.3.
+- 2026-11-12 17:53 v1.4.3 live (800224c). On the live site, a fresh Chrome recording run through the shipped mp4.js gave an 'M4A ' file with SLConfig that decodes.
