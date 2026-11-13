@@ -8,7 +8,7 @@ import { midiToFreq } from './pitch.js';
 import { randomPrompt, rerollPart, describePrompt, normalizePrompt, buildPlan, partsOf, BAND_LEVELS, bandLevel } from './prompt.js';
 import { PromptPlayer } from './prompt-player.js';
 
-const APP_VERSION = '1.4.2';
+const APP_VERSION = '1.4.3';
 const MIN_DURATION = 1.0; // seconds; shorter clips are discarded
 const MIN_BYTES = 800;
 

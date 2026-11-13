@@ -16,8 +16,12 @@ const ascii = (s) => new TextEncoder().encode(s);
 const box = (type, ...parts) => { const body = cat(...parts); return cat(u32(8 + body.length), ascii(type), body); };
 
 const PRIMING = 2112;
-function fragmentedFile(fragments) {
-  const stbl = box('stbl', box('stsd', u32(0, 1), box('mp4a', new Uint8Array(28))),
+// Chrome's sample entry: btrt, then an esds with no SLConfigDescriptor (AAC-LC, 48 kHz, stereo).
+const chromeEsds = () => box('esds', u32(0), Uint8Array.from([0x03, 0x80, 0x80, 0x80, 0x1c, 0, 0, 0,
+  0x04, 0x80, 0x80, 0x80, 0x14, 0x40, 0x15, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0x05, 0x80, 0x80, 0x80, 0x02, 0x11, 0x90]));
+function fragmentedFile(fragments, { entry = new Uint8Array(0), duration = () => 1024 } = {}) {
+  const stbl = box('stbl', box('stsd', u32(0, 1), box('mp4a', new Uint8Array(28), entry)),
     box('stts', u32(0, 0)), box('stsc', u32(0, 0)), box('stsz', u32(0, 0, 0)), box('stco', u32(0, 0)));
   const trak = box('trak',
     box('tkhd', u32(0x00000001, 0, 0, 1, 0, 0), new Uint8Array(60)),
@@ -32,7 +36,7 @@ function fragmentedFile(fragments) {
     const payload = cat(...sizes.map((s) => new Uint8Array(s).fill(n++ & 0xff)));
     const build = (dataOffset) => box('moof', box('mfhd', u32(0, 1)),
       box('traf', box('tfhd', u32(0x020018, 1, 1024, 0)), box('tfdt', u32(0x01000000, 0, 0)),
-        box('trun', u32(0x000201, sizes.length, dataOffset, ...sizes))));
+        box('trun', u32(0x000301, sizes.length, dataOffset, ...sizes.flatMap((sz, k) => [duration(k), sz])))));
     const moofLen = build(0).length;
     file = cat(file, build(moofLen + 8), box('mdat', payload));
   }
@@ -114,4 +118,25 @@ test('defragmentMp4 leaves plain files alone and drops only a cut-off final pack
   const out = defragmentMp4(cut);
   const stbl = child(out, boxes(out).moov[0], 'trak', 'mdia', 'minf', 'stbl');
   assert.equal(new DataView(out.buffer).getUint32(boxes(out, stbl.body, stbl.end).stsz[0].body + 8), 3); // packets 0-2 are whole; 3 is cut
+});
+
+test('defragmentMp4 repairs Chrome output: adds SLConfig to esds, evens out AAC packet durations', () => {
+  const jitter = [1023, 1023, 1024, 1008];
+  const entry = cat(box('btrt', u32(0, 0, 0)), chromeEsds());
+  const out = defragmentMp4(fragmentedFile([[5, 6, 7], [8, 9]], { entry, duration: (k) => jitter[k % 4] }));
+  const dv = new DataView(out.buffer);
+  const stbl = child(out, boxes(out).moov[0], 'trak', 'mdia', 'minf', 'stbl');
+  const stsd = boxes(out, stbl.body, stbl.end).stsd[0];
+  const mp4a = boxes(out, stsd.body + 8, stsd.end).mp4a[0];
+  const kids = boxes(out, mp4a.body + 28, mp4a.end);
+  assert.deepEqual(Object.keys(kids), ['btrt', 'esds']);
+  const esds = out.subarray(kids.esds[0].body, kids.esds[0].end);
+  assert.deepEqual([...esds.subarray(-3)], [0x06, 0x01, 0x02]);
+  assert.equal(esds[8], 0x1f, 'ES_Descriptor length grew by 3');
+  assert.deepEqual([...esds.subarray(-5, -3)], [0x11, 0x90], 'AudioSpecificConfig kept');
+  const stts = boxes(out, stbl.body, stbl.end).stts[0];
+  assert.deepEqual([4, 8, 12].map((o) => dv.getUint32(stts.body + o)), [1, 5, 1024]);
+  const mdhd = child(out, boxes(out).moov[0], 'trak', 'mdia', 'mdhd');
+  assert.equal(dv.getUint32(mdhd.body + 16), 5 * 1024);
+  assert.equal(defragmentMp4(out), out);
 });

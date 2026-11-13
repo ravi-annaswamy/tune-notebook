@@ -66,6 +66,66 @@ function setDuration(copy, dv, offsetV0, offsetV1, value) {
 // Copy a box's bytes, so header fields can be patched.
 const copyBox = (u8, b) => u8.slice(b.start, b.end);
 
+function readDescriptor(u8, p) {
+  const tag = u8[p++];
+  let len = 0;
+  for (let k = 0; k < 4; k++) {
+    const b = u8[p++];
+    len = (len << 7) | (b & 0x7f);
+    if (!(b & 0x80)) break;
+  }
+  return { tag, body: p, end: p + len };
+}
+const descriptor = (tag, body) => {
+  const n = body.length;
+  return Uint8Array.from([tag, 0x80 | (n >>> 21), 0x80 | ((n >>> 14) & 0x7f), 0x80 | ((n >>> 7) & 0x7f), n & 0x7f, ...body]);
+};
+
+// Chrome's mp4a entry needs two repairs that Safari's doesn't:
+// - its esds has no SLConfigDescriptor, which MP4 requires and Apple's Music
+//   app checks for; add the standard one (06 01 02).
+// - its packet durations come from the capture clock (1008/1023/1024), but an
+//   AAC-LC packet always decodes to exactly 1024 (or 960) samples.
+// Returns the stsd to write and the AAC frame length (0 if not AAC-LC).
+function fixSampleEntry(u8, stsd) {
+  const keep = { stsd: copyBox(u8, stsd), frameLength: 0 };
+  const entry = readBoxes(u8, stsd.body + 8, stsd.end)[0];
+  if (entry?.type !== 'mp4a' || (u8[entry.body + 8] << 8 | u8[entry.body + 9]) !== 0) return keep;
+  const kids = readBoxes(u8, entry.body + 28, entry.end);
+  const esds = find(kids, 'esds');
+  if (!esds) return keep;
+  const es = readDescriptor(u8, esds.body + 4);
+  if (es.tag !== 3) return keep;
+  const esFlags = u8[es.body + 2];
+  let p = es.body + 3;
+  if (esFlags & 0x80) p += 2;
+  if (esFlags & 0x40) p += 1 + u8[p];
+  if (esFlags & 0x20) p += 2;
+  let hasSL = false;
+  for (let q = p; q < es.end;) {
+    const d = readDescriptor(u8, q);
+    if (d.tag === 6) hasSL = true;
+    if (d.tag === 4 && u8[d.body] === 0x40) { // MPEG-4 audio
+      const dsi = readDescriptor(u8, d.body + 13);
+      if (dsi.tag === 5 && u8[dsi.body] >> 3 === 2) { // AAC-LC, 4-bit sample-rate index
+        const bits = (u8[dsi.body] << 8) | u8[dsi.body + 1];
+        const flagBit = ((bits >> 7) & 0xf) === 15 ? -1 : 2; // explicit 24-bit rate: skip
+        if (flagBit > 0) keep.frameLength = (u8[dsi.body + 1] >> flagBit) & 1 ? 960 : 1024;
+      }
+    }
+    q = d.end;
+  }
+  if (hasSL) return keep;
+
+  const newEsds = box('esds', u8.subarray(esds.body, esds.body + 4),
+    descriptor(3, Uint8Array.from([...u8.subarray(es.body, es.end), 0x06, 0x01, 0x02])));
+  const newEntry = box('mp4a', u8.subarray(entry.body, entry.body + 28),
+    ...kids.map((k) => (k === esds ? newEsds : copyBox(u8, k))));
+  const others = readBoxes(u8, stsd.body + 8, stsd.end).slice(1).map((b) => copyBox(u8, b));
+  keep.stsd = box('stsd', u8.subarray(stsd.body, stsd.body + 8), newEntry, ...others);
+  return keep;
+}
+
 export function defragmentMp4(u8) {
   const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
   const top = readBoxes(u8);
@@ -131,6 +191,8 @@ export function defragmentMp4(u8) {
     }
   }
   if (!sizes.length) return u8;
+  const sample = fixSampleEntry(u8, stsd);
+  if (sample.frameLength) durations.fill(sample.frameLength);
 
   const mediaDuration = durations.reduce((s, d) => s + d, 0);
   const mdhdCopy = copyBox(u8, mdhd);
@@ -182,7 +244,7 @@ export function defragmentMp4(u8) {
   const sampleBytes = sizes.reduce((s, n) => s + n, 0);
   const buildMoov = (chunkOffsets) => {
     const newStbl = box('stbl',
-      copyBox(u8, stsd),
+      sample.stsd,
       fullBox('stts', [stts.length].concat(stts.flat())),
       fullBox('stsc', [stsc.length].concat(stsc.flat())),
       fullBox('stsz', [0, sizes.length].concat(sizes)),

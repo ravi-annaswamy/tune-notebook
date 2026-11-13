@@ -171,3 +171,10 @@
 - Verified: all 52 takes in backups/…-2026-11-13 → afinfo m4af, ffmpeg PCM md5 identical to original, afconvert full frame count. Browser (port 8091): remuxed take decodes identically (109.673 s, peak −22.3 dB); importing samples/…from-iphone zip (26 takes) then Export gave 26 'M4A ' files, no moof, all decoded. npm test 32/32.
 - Side finding: Nov 11–12 takes are ~15–20 dB quieter (mean ≈ −50 dB) than Oct 18 / Nov 4 takes (−30 to −36 dB). This comes from the recordings, not the export. Not investigated.
 - 2026-11-12 17:44 v1.4.2 committed (e28f324), pushed, live on GitHub Pages: sw.js v1.4.2, js/mp4.js 200, app loads with no console errors. Not yet exported from the iPhone or imported into Music.
+
+## 2026-11-12 17:50 — v1.4.3 (not committed): Chrome-on-Mac exports
+- User recorded on the Mac web page (Chrome) and exported one take; still wouldn't play in Music. File was already plain M4A (v1.4.2 remux ran) and Apple frameworks read it (AVAsset playable, AVAudioFile peak 0.24).
+- Differences from Safari/iPhone output: Chrome's esds has no SLConfigDescriptor (06 01 02), and trun gives clock-based packet durations (1008/1023/1024) instead of a constant 1024. Reproduced with Chrome 152 MediaRecorder in the browser pane.
+- js/mp4.js fixSampleEntry(): adds SLConfig when missing; for AAC-LC sets every packet duration to 1024 (960 if frameLengthFlag). Safari takes unaffected: all 52 remuxed files byte-identical to before. New Chrome-shaped unit test; npm test 33/33.
+- Patched copy of the user's file for a Music test: backups/Nov 12, 5-45 PM - Sa C - 99bpm (fixed).m4a (PCM identical). Waiting on the user to confirm it plays in Music before commit/deploy.
+- 2026-11-12 17:52 User confirmed the (fixed) copy plays in Music. Committing and pushing v1.4.3.
