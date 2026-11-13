@@ -170,3 +170,4 @@
 - app.js: exportBytes()/exportFile() used by zip export, shareTune and one-by-one share. Stored blobs untouched. APP_VERSION and sw.js VERSION 1.4.2; mp4.js added to sw ASSETS.
 - Verified: all 52 takes in backups/…-2026-11-13 → afinfo m4af, ffmpeg PCM md5 identical to original, afconvert full frame count. Browser (port 8091): remuxed take decodes identically (109.673 s, peak −22.3 dB); importing samples/…from-iphone zip (26 takes) then Export gave 26 'M4A ' files, no moof, all decoded. npm test 32/32.
 - Side finding: Nov 11–12 takes are ~15–20 dB quieter (mean ≈ −50 dB) than Oct 18 / Nov 4 takes (−30 to −36 dB). This comes from the recordings, not the export. Not investigated.
+- 2026-11-12 17:44 v1.4.2 committed (e28f324), pushed, live on GitHub Pages: sw.js v1.4.2, js/mp4.js 200, app loads with no console errors. Not yet exported from the iPhone or imported into Music.
